@@ -8,6 +8,8 @@ import Icons from 'unplugin-icons/vite'
 import IconsResolver from 'unplugin-icons/resolver'
 import Components from 'unplugin-vue-components/vite'
 import AutoImport from 'unplugin-auto-import/vite'
+import ElementPlus from 'unplugin-element-plus'
+import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import UnoCSS from 'unocss/vite'
 import { isDev, port, r } from './scripts/utils'
 import packageJson from './package.json'
@@ -27,6 +29,7 @@ export const sharedConfig: UserConfig = {
     Vue(),
 
     AutoImport({
+      resolvers: [ElementPlusResolver()],
       imports: [
         'vue',
         {
@@ -44,12 +47,15 @@ export const sharedConfig: UserConfig = {
       // generate `components.d.ts` for ts support with Volar
       dts: r('src/components.d.ts'),
       resolvers: [
+        ElementPlusResolver(),
         // auto import icons
         IconsResolver({
           componentPrefix: '',
         }),
       ],
     }),
+
+    ElementPlus.vite({}),
 
     // https://github.com/antfu/unplugin-icons
     Icons(),
@@ -86,6 +92,14 @@ export default defineConfig(({ command }) => ({
     port,
     hmr: {
       host: 'localhost',
+    },
+  },
+  css: {
+    preprocessorOptions: {
+      less: {},
+    },
+    postcss: {
+      plugins: [],
     },
   },
   build: {
