@@ -1,19 +1,53 @@
 <script setup lang="ts">
-import { storageDemo, switchToLeftTab } from '~/logic'
+import axios from 'axios'
+import { clashHost, clashPort, clashSecret, switchToLeftTab } from '~/logic'
 
+const info = ref('')
+const currentProxy = ref('')
+const proxies = ref([])
 function openOptionsPage() {
   browser.runtime.openOptionsPage()
 }
 function reload() {
   browser.runtime.reload()
 }
+
+function loadClashConfig() {
+  const url = `http://${clashHost.value}:${clashPort.value}/proxies`
+  return axios.get(url, {
+    headers: {
+      Authorization: `Bearer ${clashSecret.value}`,
+    },
+  })
+}
+onMounted(() => {
+  loadClashConfig().then((res) => {
+    proxies.value = (res.data as any).proxies.GLOBAL.all
+  }).catch((err) => {
+    info.value = 'Clash未正确配置，配置一般在~/.config/clash/config.yaml中'
+    console.error(err)
+  })
+})
 </script>
 
 <template>
-  <main class="w-[300px] px-4 py-5 text-center text-gray-700">
+  <main class="w-[400px] h-[800px] px-4 py-5 text-center text-gray-700">
     <Logo />
 
     <SharedSubtitle />
+
+    <div>{{ info }} </div>
+
+    <el-select v-model="currentProxy" class="m-2" placeholder="Select">
+      <el-option
+        v-for="item in proxies"
+        :key="item"
+        :label="item"
+        :value="item"
+      />
+    </el-select>
+
+    <input v-model="clashSecret" class="border border-gray-400 rounded px-2 py-1 mt-2">
 
     <div>
       <button class="btn mt-2 mr-2" @click="switchToLeftTab">
