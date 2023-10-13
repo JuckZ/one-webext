@@ -2,15 +2,12 @@ import type { BrowsingData } from 'webextension-polyfill'
 export * from './storage'
 
 export function switchToLeftTab() {
-  browser.runtime.openOptionsPage()
-
   console.error(browser, browser.tabs)
-
   browser.tabs.query({ currentWindow: true }).then((tabs) => {
     const activeTab = null
     browser.tabs.query({ active: true })
       .then((tab) => { console.error(tab) })
-    // console.error(activeTab)
+    console.error(activeTab)
     // if (activeTab && activeTab.index > 0)
     //   browser.tabs.update(activeTab.index - 1, { active: true })
   })

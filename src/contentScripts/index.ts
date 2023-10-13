@@ -6,6 +6,12 @@ import { setupApp } from '~/logic/common-setup'
 
 // Firefox `browser.tabs.executeScript()` requires scripts return a primitive value
 (() => {
+  if ((window as any).contentLoaded)
+    return
+  // TODO 需要在用户点击插件图标时，探测页面中的 content_scripts 是否存在（发送消息是否有响应/出错），再提示用户刷新页面，或者执行如下脚本，或者弹窗让用户确认后执行如下脚本
+  // browser.tabs.executeScript({
+  //   file: 'content.js',
+  // })
   console.info('[vitesse-webext] Hello world from content script')
 
   // communication example: send previous tab title from background page
@@ -26,5 +32,6 @@ import { setupApp } from '~/logic/common-setup'
   document.body.appendChild(container)
   const app = createApp(App)
   setupApp(app)
-  app.mount(root)
+  app.mount(root);
+  (window as any).contentLoaded = true
 })()
