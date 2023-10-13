@@ -228,7 +228,7 @@ export default defineComponent({
 <template>
   <el-config-provider :locale="locale">
     <main class="px-4 py-10 text-center text-gray-700 dark:text-gray-200">
-      <img src="/assets/icon.svg" class="icon-btn mx-2 text-2xl" alt="extension icon">
+      <img src="/assets/icon.png" class="icon-btn w-20 mx-2 text-2xl" alt="extension icon">
       <div>Options</div>
       <SharedSubtitle />
 
