@@ -1,5 +1,6 @@
 import { onMessage, sendMessage } from 'webext-bridge/background'
 import type { Tabs } from 'webextension-polyfill'
+import { switchToLeftTab } from '~/logic'
 
 // only on dev mode
 if (import.meta.hot) {
@@ -37,6 +38,11 @@ browser.tabs.onActivated.addListener(async ({ tabId }) => {
   // eslint-disable-next-line no-console
   console.log('previous tab', tab)
   sendMessage('tab-prev', { title: tab.title }, { context: 'content-script', tabId })
+})
+
+browser.commands.onCommand.addListener((command) => {
+  if (command === 'switchToLeftTab')
+    switchToLeftTab()
 })
 
 onMessage('get-current-tab', async () => {

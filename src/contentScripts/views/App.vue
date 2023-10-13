@@ -19,12 +19,6 @@ const [show, toggle] = useToggle(false)
       </h1>
       <SharedSubtitle />
     </div>
-    <button
-      class="flex w-10 h-10 rounded-full shadow cursor-pointer border-none"
-      bg="teal-600 hover:teal-700"
-      @click="toggle()"
-    >
-      <pixelarticons-power class="block m-auto text-white text-lg" />
-    </button>
+    <img src="../../../extension/assets/icon.png" class="flex w-10 h-10 icon-btn rounded-full shadow cursor-pointer" alt="extension icon" @click="toggle()">
   </div>
 </template>
