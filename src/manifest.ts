@@ -26,6 +26,9 @@ export async function getManifest() {
     chrome_url_overrides: {
       newtab: './dist/home/index.html',
     },
+    side_panel: {
+      default_path: './dist/sidebar/index.html',
+    },
     background: {
       service_worker: './dist/background/index.mjs',
     },

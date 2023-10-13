@@ -102,6 +102,7 @@ export default defineConfig(({ command }) => ({
     rollupOptions: {
       input: {
         home: r('src/home/index.html'),
+        sidebar: r('src/sidebar/index.html'),
         options: r('src/options/index.html'),
         popup: r('src/popup/index.html'),
       },
