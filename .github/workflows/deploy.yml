@@ -1,0 +1,80 @@
+name: Deploy Extension
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18.15.x
+
+      - uses: pnpm/action-setup@v2
+        name: Install pnpm
+        id: pnpm-install
+        with:
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v3
+        name: Setup pnpm cache
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install
+        run: pnpm i
+
+      - name: Test
+        run: pnpm run test
+
+      - name: Build
+        id: build
+        if: ${{ github.ref == 'refs/heads/main' }}
+        run: |
+          pnpm run build
+
+      - name: Publish to Chrome Web Store
+        uses: wdzeng/chrome-extension@v1
+        if: ${{ github.ref == 'refs/heads/deploy' }}
+        with:
+          extension-id: your-extension-id
+          zip-path: your-extension.zip
+          client-id: ${{ secrets.CHROME_CLIENT_ID }}
+          client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
+          refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
+
+      - name: Publish to Edge Add-ons
+        uses: wdzeng/edge-addon
+        if: ${{ github.ref == 'refs/heads/deploy' }}
+        with:
+          product-id: your-addon-product-id
+          zip-path: your-addon.zip
+          client-id: ${{ secrets.EDGE_CLIENT_ID }}
+          client-secret: ${{ secrets.EDGE_CLIENT_SECRET }}
+          access-token-url: ${{ secrets.EDGE_ACCESS_TOKEN_URL }}
+
+      - name: Publish to Firefox Add-ons
+        if: ${{ github.ref == 'refs/heads/deploy' }}
+        uses: wdzeng/firefox-addon
+        with:
+          addon-guid: your-addon's-guid
+          xpi-path: your-addon.zip
+          self-hosted: false
+          jwt-issuer: ${{ secrets.FIREFOX_JWT_ISSUER }}
+          jwt-secret: ${{ secrets.FIREFOX_JWT_SECRET }}
