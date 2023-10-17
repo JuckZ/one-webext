@@ -1,10 +1,11 @@
-import type { Bookmark } from '../interface'
+import type { Bookmarks } from 'webextension-polyfill'
+import type { Bookmark } from '~/interface'
 
 async function getBookmarks() {
   const result: Bookmark[] = []
 
   // 将书签树展开成一维数组
-  function flatTree(node: chrome.bookmarks.BookmarkTreeNode, path: string[] = []) {
+  function flatTree(node: Bookmarks.BookmarkTreeNode, path: string[] = []) {
     if (node.title && !['1', '2'].includes(node.id))
       path.push(node.title)
 
@@ -24,7 +25,7 @@ async function getBookmarks() {
     path.pop()
   }
 
-  const tree = await chrome.bookmarks.getTree()
+  const tree = await browser.bookmarks.getTree()
   flatTree(tree[0])
   return result
 }
