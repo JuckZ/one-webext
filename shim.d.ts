@@ -1,4 +1,4 @@
-import type { ProtocolWithReturn } from 'webext-bridge'
+import type { ProtocolWithReturn } from 'webext-bridge';
 
 declare module 'webext-bridge' {
   export interface ProtocolMap {
@@ -13,7 +13,7 @@ declare module 'webextension-polyfill' {
   // FIXME for chrome now
   declare const sidePanel = {
     setOptions: ({ tabId, windowId, path, enable }: {tabId?: number; path?: string; enabled?: boolean;}) => {}
-  }
+  };
  namespace Manifest {
    interface WebExtensionManifest {
       // FIXME for chrome now

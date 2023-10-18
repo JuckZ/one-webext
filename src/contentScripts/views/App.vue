@@ -1,33 +1,34 @@
 <script setup lang="ts">
-import { useToggle } from '@vueuse/core'
-import interact from 'interactjs'
-import type { Interactable } from '@interactjs/types'
+import { useToggle } from '@vueuse/core';
+import interact from 'interactjs';
+import type { Interactable } from '@interactjs/types';
 
-import 'uno.css'
+// eslint-disable-next-line import/no-unresolved
+import 'uno.css';
 
-const [show, toggle] = useToggle(false)
-const position = { x: 0, y: 0 }
-const draggingStatus = {}
+const [show, toggle] = useToggle(false);
+const position = { x: 0, y: 0 };
+const draggingStatus = {};
 function enableResizable(interactable: Interactable) {
   interactable.resizable({
     edges: { top: true, left: true, bottom: true, right: true },
     listeners: {
       move(event) {
-        let { x, y } = event.target.dataset
+        let { x, y } = event.target.dataset;
 
-        x = (parseFloat(x) || 0) + event.deltaRect.left
-        y = (parseFloat(y) || 0) + event.deltaRect.top
+        x = (parseFloat(x) || 0) + event.deltaRect.left;
+        y = (parseFloat(y) || 0) + event.deltaRect.top;
 
         Object.assign(event.target.style, {
           width: `${event.rect.width}px`,
           height: `${event.rect.height}px`,
           transform: `translate(${x}px, ${y}px)`,
-        })
+        });
 
-        Object.assign(event.target.dataset, { x, y })
+        Object.assign(event.target.dataset, { x, y });
       },
     },
-  })
+  });
 }
 function enableDraggable(interactable: Interactable) {
   interactable.draggable({
@@ -43,35 +44,38 @@ function enableDraggable(interactable: Interactable) {
     ],
     listeners: {
       start(event) {
-        draggingStatus[event.target.id] = true
+        draggingStatus[event.target.id] = true;
       },
       move(event) {
-        position.x += event.dx
-        position.y += event.dy
-        event.target.style.transform = `translate(${position.x}px, ${position.y}px)`
+        position.x += event.dx;
+        position.y += event.dy;
+        event.target.style.transform = `translate(${position.x}px, ${position.y}px)`;
       },
       end(event) {
         // setTimeout 在此处是一种hack方式，用于解决拖动结束后，点击事件会被触发的问题
         setTimeout(() => {
-          draggingStatus[event.target.id] = false
-        }, 0)
+          draggingStatus[event.target.id] = false;
+        }, 0);
       },
     },
-  })
+  });
 }
 function toggleShow(eleId: string) {
   if (!draggingStatus[eleId])
-    toggle()
+    toggle();
 }
 onMounted(() => {
-  const btn = interact('#float-ball')
+  const btn = interact('#float-ball');
   // enableResizable(btn)
-  enableDraggable(btn)
-})
+  enableDraggable(btn);
+});
 </script>
 
 <template>
-  <div id="float-ball" class="fixed right-0 bottom-0 z-100 flex items-end font-sans select-none leading-1em touch-none select-none">
+  <div
+    id="float-ball"
+    class="fixed right-0 bottom-0 z-100 flex items-end font-sans select-none leading-1em touch-none select-none"
+  >
     <div
       class="bg-white text-gray-800 rounded-lg shadow w-max h-min"
       p="x-4 y-2"
@@ -83,6 +87,11 @@ onMounted(() => {
       </h1>
       <SharedSubtitle />
     </div>
-    <img src="../../../extension/assets/icon.png" class="flex w-10 h-10 m-5 icon-btn rounded-full shadow cursor-pointer" alt="extension icon" @click="toggleShow('float-ball')">
+    <img
+      src="../../../extension/assets/icon.png"
+      class="flex w-10 h-10 m-5 icon-btn rounded-full shadow cursor-pointer"
+      alt="extension icon"
+      @click="toggleShow('float-ball')"
+    >
   </div>
 </template>

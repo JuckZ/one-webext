@@ -1,24 +1,24 @@
-import type { App } from 'vue'
+import type { App } from 'vue';
 
 function focus(el: HTMLElement) {
   if (el.nodeName !== 'INPUT')
-    el = el.querySelector('input') || el
+    el = el.querySelector('input') || el;
 
-  el.focus()
+  el.focus();
 }
 
 const vFocus = {
   name: 'focus',
   mounted(el: HTMLElement) {
-    focus(el)
+    focus(el);
   },
   updated(el: HTMLElement) {
-    focus(el)
+    focus(el);
   },
-}
+};
 
 export default {
   install(app: App) {
-    app.directive(vFocus.name, vFocus)
+    app.directive(vFocus.name, vFocus);
   },
-}
+};

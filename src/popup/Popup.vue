@@ -1,33 +1,35 @@
 <script setup lang="ts">
-import axios from 'axios'
-import { clashHost, clashPort, clashSecret, switchToLeftTab } from '~/logic'
+import axios from 'axios';
+import { clashHost, clashPort, clashSecret, switchToLeftTab } from '~/logic';
 
-const info = ref('')
-const currentProxy = ref('')
-const proxies = ref([])
+const info = ref('');
+const currentProxy = ref('');
+const proxies = ref([]);
 function openOptionsPage() {
-  browser.runtime.openOptionsPage()
+  browser.runtime.openOptionsPage();
 }
 function reload() {
-  browser.runtime.reload()
+  browser.runtime.reload();
 }
 
 function loadClashConfig() {
-  const url = `http://${clashHost.value}:${clashPort.value}/proxies`
+  const url = `http://${clashHost.value}:${clashPort.value}/proxies`;
   return axios.get(url, {
     headers: {
       Authorization: `Bearer ${clashSecret.value}`,
     },
-  })
+  });
 }
+
 onMounted(() => {
   loadClashConfig().then((res) => {
-    proxies.value = (res.data as any).proxies.GLOBAL.all
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    proxies.value = (res.data as any).proxies.GLOBAL.all;
   }).catch((err) => {
-    info.value = 'Clash未正确配置，配置一般在~/.config/clash/config.yaml中'
-    console.error(err)
-  })
-})
+    console.error(JSON.stringify(err));
+    info.value = 'Clash未正确配置，配置一般在~/.config/clash/config.yaml中';
+  });
+});
 </script>
 
 <template>
@@ -38,7 +40,11 @@ onMounted(() => {
 
     <div>{{ info }} </div>
 
-    <el-select v-model="currentProxy" class="m-2" placeholder="Select">
+    <el-select
+      v-model="currentProxy"
+      class="m-2"
+      placeholder="Select"
+    >
       <el-option
         v-for="item in proxies"
         :key="item"
@@ -47,22 +53,45 @@ onMounted(() => {
       />
     </el-select>
 
-    <input v-model="clashSecret" class="border border-gray-400 rounded px-2 py-1 mt-2">
+    <input
+      v-model="clashSecret"
+      class="border border-gray-400 rounded px-2 py-1 mt-2"
+    >
 
     <div>
-      <button class="btn mt-2 mr-2" @click="switchToLeftTab">
+      <button
+        class="btn mt-2 mr-2"
+        @click="switchToLeftTab"
+      >
         Go to left
       </button>
-      <button class="btn mt-2" @click="reload">
+      <button
+        class="btn mt-2"
+        @click="reload"
+      >
         Reload
       </button>
     </div>
 
-    <button class="btn mt-2" @click="openOptionsPage">
+    <button
+      class="btn mt-2"
+      @click="openOptionsPage"
+    >
       Open Options
     </button>
     <div class="mt-2">
-      <span class="opacity-50">Storage:</span> {{ storageDemo }}
+      <div class="opacity-50">
+        storageDemo: {{ storageDemo }}
+      </div> {{ storageDemo }}
+      <div class="opacity-50">
+        clashHost: {{ clashHost }}
+      </div> {{ storageDemo }}
+      <div class="opacity-50">
+        clashPort: {{ clashPort }}
+      </div> {{ storageDemo }}
+      <div class="opacity-50">
+        clashSecret: {{ clashSecret }}
+      </div> {{ storageDemo }}
     </div>
   </main>
 </template>

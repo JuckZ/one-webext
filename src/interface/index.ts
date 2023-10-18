@@ -1,5 +1,5 @@
-import type { ElTable } from 'element-plus'
-import type { Bookmarks } from 'webextension-polyfill'
+import type { ElTable } from 'element-plus';
+import type { Bookmarks } from 'webextension-polyfill';
 
 export interface Bookmark extends Bookmarks.BookmarkTreeNode {
   path: Array<string>
