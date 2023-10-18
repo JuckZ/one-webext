@@ -37,12 +37,14 @@
   "dependencies": {
     "@element-plus/icons-vue": "^1.1.4",
     "axios": "^1.4.0",
-    "element-plus": "^2.1.11"
+    "element-plus": "^2.1.11",
+    "interactjs": "^1.10.19"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^0.36.0",
     "@ffflorian/jszip-cli": "^3.4.1",
     "@iconify/json": "^2.2.61",
+    "@interactjs/types": "^1.10.19",
     "@playwright/test": "^1.33.0",
     "@types/chrome": "^0.0.237",
     "@types/fs-extra": "^11.0.1",
