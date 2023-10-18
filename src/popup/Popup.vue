@@ -21,14 +21,23 @@ function loadClashConfig() {
   });
 }
 
-onMounted(() => {
-  loadClashConfig().then((res) => {
+// TODO 优化，为什么同样在onMounted中写如下逻辑，dev可以获取到clashSecret的值，但是build之后就获取不到了
+watch(clashSecret, async (newValue, oldValue) => {
+  if (newValue) {
+    loadClashConfig().then((res) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    proxies.value = (res.data as any).proxies.GLOBAL.all;
-  }).catch((err) => {
-    console.error(JSON.stringify(err));
-    info.value = 'Clash未正确配置，配置一般在~/.config/clash/config.yaml中';
-  });
+      proxies.value = (res.data as any).proxies.GLOBAL.all;
+    }).catch((err) => {
+      console.error(JSON.stringify(err));
+      info.value = 'Clash未正确配置，配置一般在~/.config/clash/config.yaml中';
+    });
+  } else {
+    info.value = 'Clash未配置，配置一般在~/.config/clash/config.yaml中';
+  }
+});
+
+
+onMounted(() => {
 });
 </script>
 
