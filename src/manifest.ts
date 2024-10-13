@@ -107,7 +107,11 @@ export async function getManifest() {
       'webAuthenticationProxy',
       'webNavigation',
       'webRequest',
-      // 'webRequestBlocking',
+      // 在 Manifest V3 中，'webRequestBlocking' 已被弃用
+      // 替代方案是使用 declarativeNetRequest API
+      'declarativeNetRequest',
+      'declarativeNetRequestFeedback',
+      'webRequestBlocking'
     ],
     commands: {
       switchToLeftTab: {

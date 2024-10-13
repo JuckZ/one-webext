@@ -73,6 +73,43 @@ browser.contextMenus.onClicked.addListener((info, tab) => {
   }
 });
 
+// console.error('onHeadersReceived');
+// browser.webRequest.onHeadersReceived.addListener(
+//   function(details) {
+//     console.error('deaseasf');
+//     let requestHeaderValue = null;
+//     // 获取请求头中的某个字段
+//     browser.webRequest.onBeforeSendHeaders.addListener(
+//       function(details) {
+//         const requestHeaders = details.requestHeaders;
+//         console.error(JSON.stringify(requestHeaders));
+//         if (!requestHeaders)
+//           return;
+//         for (const header of requestHeaders) {
+//           if (header.name.toLowerCase() === 'example-header') {
+//             requestHeaderValue = header.value;
+//             break;
+//           }
+//         }
+//         requestHeaders.push({ name: 'bbb', value: 'juck' || '111' });
+
+//       },
+//       { urls: ['<all_urls>'] },
+//       ['requestHeaders']
+//     );
+
+//     // 修改响应头
+//     const responseHeaders = details.responseHeaders;
+//     if (!responseHeaders)
+//       return;
+//     responseHeaders.push({ name: 'aaa', value: requestHeaderValue || '111' });
+//     return { responseHeaders };
+//   },
+//   {urls: ['<all_urls>']},
+//   ['blocking', 'responseHeaders']
+// );
+
+
 browser.commands.onCommand.addListener((command) => {
   if (command === 'switchToLeftTab')
     switchToLeftTab();
