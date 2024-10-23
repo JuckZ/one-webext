@@ -10,7 +10,7 @@ import Components from 'unplugin-vue-components/vite';
 import AutoImport from 'unplugin-auto-import/vite';
 import ElementPlus from 'unplugin-element-plus';
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers';
-import UnoCSS from 'unocss/vite';
+import UnoCSS from '@unocss/vite';
 import { isDev, port, r } from './scripts/utils';
 import packageJson from './package.json';
 

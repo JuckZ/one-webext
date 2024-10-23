@@ -34,6 +34,7 @@ import { setupApp } from '~/logic/common-setup';
   const app = createApp(App);
   setupApp(app);
   app.mount(root);
+  
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (window as any).contentLoaded = true;
 })();
