@@ -7,6 +7,6 @@ chrome.devtools.panels.create(
   null,
   "../devtools-page/index.html",
   function(panel) {
-    console.log("自定义面板已创建");
+    console.log("my panel created");
   }
 );
