@@ -1,6 +1,6 @@
 import { onMessage, sendMessage } from 'webext-bridge/background';
 import type { Tabs } from 'webextension-polyfill';
-import { switchToLeftTab } from '~/logic';
+import { switchToLeftTab, reloadThisExtension, setBadge } from '~/logic';
 
 // only on dev mode
 if (import.meta.hot) {
@@ -19,6 +19,16 @@ browser.runtime.onInstalled.addListener((): void => {
     title: 'Open side panel',
     contexts: ['all'],
   });
+
+  browser.contextMenus.create({
+    id: 'reloadThisExtension',
+    title: 'Reload this extension',
+    contexts: ['all'],
+  });
+
+  // browser.devtools.panels.create('test', '', 'xx.html').then((panel) => {
+  //   console.log('panel', panel);
+  // });
 });
 
 let previousTabId = 0;
@@ -69,7 +79,13 @@ browser.tabs.onActivated.addListener(async ({ tabId }) => {
 browser.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === 'openSidePanel') {
     // This will open the panel in all the pages on the current window.
-    browser.sidePanel.open({ tabId: tab.id });
+    browser.sidePanel.open({ tabId: tab?.id });
+  }
+  if (info.menuItemId === 'reloadThisExtension') {
+    setBadge({ text: 'OK', color: '#4cb749' });
+    setTimeout(() => {
+      reloadThisExtension();
+    }, 200);
   }
 });
 
@@ -111,8 +127,15 @@ browser.contextMenus.onClicked.addListener((info, tab) => {
 
 
 browser.commands.onCommand.addListener((command) => {
-  if (command === 'switchToLeftTab')
+  if (command === 'switchToLeftTab') {
     switchToLeftTab();
+  }
+  if (command === 'reload') {
+    setBadge({ text: 'OK', color: '#4cb749' });
+    setTimeout(() => {
+      reloadThisExtension();
+    }, 200);
+  }
 });
 
 onMessage('get-current-tab', async () => {

@@ -5,6 +5,7 @@ import { isDev, port, r } from '../scripts/utils';
 
 export async function getManifest() {
   const pkg = await fs.readJSON(r('package.json')) as typeof PkgType;
+  const ModifierKey = 'Alt+Shift';
 
   // update this file to update this manifest.json
   // can also be conditional based on your need
@@ -112,15 +113,19 @@ export async function getManifest() {
       // 替代方案是使用 declarativeNetRequest API
       'declarativeNetRequest',
       'declarativeNetRequestFeedback',
-      'webRequestBlocking'
     ],
     commands: {
       switchToLeftTab: {
         suggested_key: {
-          default: 'Ctrl+Shift+E',
-          mac: 'Ctrl+Shift+E',
+          default: `${ModifierKey}+E`,
         },
         description: 'Switch to the left tab',
+      },
+      reloadThisExtension: {
+        suggested_key: {
+          default: `${ModifierKey}+D`,
+        },
+        description: 'Reload this extensions',
       },
     },
     host_permissions: ['*://*/*'],
