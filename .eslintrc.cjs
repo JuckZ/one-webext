@@ -19,6 +19,7 @@ module.exports = {
     activeDocument: 'readonly',
     app: 'readonly',
     module: 'readonly',
+    // chrome: 'readonly',
   },
   parser: 'vue-eslint-parser',
   parserOptions: {

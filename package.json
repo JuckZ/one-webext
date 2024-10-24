@@ -56,7 +56,7 @@
     "@iconify/json": "^2.2.239",
     "@interactjs/types": "^1.10.19",
     "@playwright/test": "^1.46.1",
-    "@types/chrome": "^0.0.237",
+    "@types/chrome": "^0.0.239",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^22.5.0",
     "@types/webextension-polyfill": "^0.12.0",
