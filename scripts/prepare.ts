@@ -15,7 +15,7 @@ async function stubIndexHtml() {
     'popup',
     'background',
     'devtools',
-    'devtools-page',
+    'devtools-page'
   ];
 
   for (const view of views) {

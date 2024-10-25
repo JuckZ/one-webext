@@ -1,7 +1,7 @@
 import fs from 'fs-extra';
 import type { Manifest } from 'webextension-polyfill';
 import type PkgType from '../package.json';
-import { isDev, port, r } from '../scripts/utils';
+import { isDev, isFirefox, port, r } from '../scripts/utils';
 
 export async function getManifest() {
   const pkg = await fs.readJSON(r('package.json')) as typeof PkgType;
@@ -9,6 +9,7 @@ export async function getManifest() {
 
   // update this file to update this manifest.json
   // can also be conditional based on your need
+
   const manifest: Manifest.WebExtensionManifest = {
     manifest_version: 3,
     name: pkg.displayName || pkg.name,
@@ -33,7 +34,10 @@ export async function getManifest() {
     side_panel: {
       default_path: './dist/sidebar/index.html',
     },
-    background: {
+    background: isFirefox ? {
+      service_worker: './dist/background/index.mjs',
+      type: 'module',
+    } : {
       service_worker: './dist/background/index.mjs',
     },
     devtools_page: './dist/devtools/index.html',
@@ -156,10 +160,23 @@ export async function getManifest() {
     content_security_policy: {
       extension_pages: isDev
         // this is required on dev for Vite script to load
-        ? `script-src 'self' http://localhost:${port}; object-src 'self'`
+        ? `script-src \'self\' http://localhost:${port}; object-src \'self\'`
         : 'script-src \'self\'; object-src \'self\'',
     },
   };
+  
+  // add sidepanel
+  if (isFirefox) {
+    manifest.sidebar_action = {
+      default_panel: 'dist/sidebar/index.html',
+    }
+  }
+  else {
+    // the sidebar_action does not work for chromium based
+    (manifest as any).side_panel = {
+      default_path: 'dist/sidebar/index.html',
+    }
+  }
 
   // FIXME: not work in MV3
   // eslint-disable-next-line no-constant-condition

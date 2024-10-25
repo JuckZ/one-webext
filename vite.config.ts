@@ -1,18 +1,18 @@
 /// <reference types="vitest" />
 
-import { dirname, relative } from 'node:path';
-import type { UserConfig } from 'vite';
-import { defineConfig } from 'vite';
-import Vue from '@vitejs/plugin-vue';
-import Icons from 'unplugin-icons/vite';
-import IconsResolver from 'unplugin-icons/resolver';
-import Components from 'unplugin-vue-components/vite';
-import AutoImport from 'unplugin-auto-import/vite';
-import ElementPlus from 'unplugin-element-plus';
-import { ElementPlusResolver } from 'unplugin-vue-components/resolvers';
-import UnoCSS from '@unocss/vite';
-import { isDev, port, r } from './scripts/utils';
-import packageJson from './package.json';
+import { dirname, relative } from 'node:path'
+import type { UserConfig } from 'vite'
+import { defineConfig } from 'vite'
+import Vue from '@vitejs/plugin-vue'
+import Icons from 'unplugin-icons/vite'
+import IconsResolver from 'unplugin-icons/resolver'
+import Components from 'unplugin-vue-components/vite'
+import AutoImport from 'unplugin-auto-import/vite'
+import ElementPlus from 'unplugin-element-plus'
+import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
+import UnoCSS from 'unocss/vite'
+import { isDev, port, r } from './scripts/utils'
+import packageJson from './package.json'
 
 export const sharedConfig: UserConfig = {
   root: r('src'),
@@ -29,15 +29,13 @@ export const sharedConfig: UserConfig = {
     Vue(),
 
     AutoImport({
-      eslintrc: {
-        enabled: true,
-      },
       resolvers: [ElementPlusResolver()],
       imports: [
         'vue',
         {
           'webextension-polyfill': [
-            ['*', 'browser'],
+            // ['*', 'browser'],
+            ['=', 'browser'],
           ],
         },
       ],
@@ -53,7 +51,8 @@ export const sharedConfig: UserConfig = {
         ElementPlusResolver(),
         // auto import icons
         IconsResolver({
-          componentPrefix: '',
+          // componentPrefix: '',
+          prefix: '',
         }),
       ],
     }),
@@ -72,7 +71,7 @@ export const sharedConfig: UserConfig = {
       enforce: 'post',
       apply: 'build',
       transformIndexHtml(html, { path }) {
-        return html.replace(/"\/assets\//g, `"${relative(dirname(path), '/assets')}/`);
+        return html.replace(/"\/assets\//g, `"${relative(dirname(path), '/assets')}/`)
       },
     },
   ],
@@ -86,7 +85,7 @@ export const sharedConfig: UserConfig = {
       'vue-demi',
     ],
   },
-};
+}
 
 export default defineConfig(({ command }) => ({
   ...sharedConfig,
@@ -96,15 +95,16 @@ export default defineConfig(({ command }) => ({
     hmr: {
       host: 'localhost',
     },
+    origin: `http://localhost:${port}`
   },
-  css: {
-    preprocessorOptions: {
-      less: {},
-    },
-    postcss: {
-      plugins: [],
-    },
-  },
+  // css: {
+  //   preprocessorOptions: {
+  //     less: {},
+  //   },
+  //   postcss: {
+  //     plugins: [],
+  //   },
+  // },
   build: {
     watch: isDev
       ? {}
@@ -129,4 +129,4 @@ export default defineConfig(({ command }) => ({
     globals: true,
     environment: 'jsdom',
   },
-}));
+}))
