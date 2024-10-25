@@ -1,5 +1,5 @@
 chrome.devtools.panels.sources.createSidebarPane("Download", (pane) => {
-  pane.setPage("../devtools-page/index.html");
+  pane.setPage("dist/devtools-page/index.html");
 });
 
 chrome.devtools.panels.create(

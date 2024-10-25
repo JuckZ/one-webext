@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { clashSecret } from '~/logic';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 const info = ref('');
 const errorMsg = ref();
@@ -11,6 +13,31 @@ const test = () => {
   catch (e) {
     errorMsg.value = e;
   }
+};
+
+const isDownloading = ref(false);
+const downloadSourceCode = () => {
+  isDownloading.value = true;
+  chrome.devtools.inspectedWindow.getResources(
+        (resources) => {
+            var c = 0;
+            var zip = new JSZip();
+            const total = resources.length;
+            for (const resource of resources) {                
+                resource.getContent((content, encoding)=> {
+                    zip.file(resource.url, content, {base64: encoding == 'base64'});
+                    c = c + 1;
+                    if (c == total){
+                        zip.generateAsync({type:"blob"})
+                        .then(function(zipContent) {                    
+                            saveAs(zipContent, "sources.zip");
+                        });
+                        isDownloading.value = false;
+                    }
+                });
+            }
+        }
+    )
 };
 
 onMounted(() => {
@@ -32,6 +59,9 @@ onMounted(() => {
     <div>
       <button class="btn mt-2 mr-2" @click="test">
         Test
+      </button>
+      <button :disabled="isDownloading" class="btn mt-2 mr-2" @click="downloadSourceCode">
+        Download sourcecode
       </button>
     </div>
   </main>
