@@ -12,6 +12,7 @@ if (import.meta.hot) {
 }
 
 browser.runtime.onInstalled.addListener((): void => {
+  updateRules();
   // eslint-disable-next-line no-console
   console.log('Extension installed');
   browser.contextMenus.create({
@@ -29,6 +30,19 @@ browser.runtime.onInstalled.addListener((): void => {
   // browser.devtools.panels.create('test', '', 'xx.html').then((panel) => {
   //   console.log('panel', panel);
   // });
+});
+
+
+// on activate plugin, update rules.
+browser.runtime.onStartup.addListener(() => {
+  updateRules();
+  console.log('Extension started.');
+});
+
+// on update plugin, update rules.
+browser.runtime.onUpdateAvailable.addListener(() => {
+  updateRules();
+  console.log('Extension updated.');
 });
 
 let previousTabId = 0;
@@ -51,6 +65,13 @@ browser.tabs.onUpdated.addListener(async (tabId, info, tab) => {
       enabled: true,
     });
   }
+});
+
+/**
+ * manifest.json 中 action 的点击事件，没有default_popup时，点击时会触发
+ */
+chrome.action.onClicked.addListener(() => {
+  console.log('onClicked');
 });
 
 // communication example: send previous tab title from background page
@@ -89,14 +110,15 @@ browser.contextMenus.onClicked.addListener((info, tab) => {
   }
 });
 
-// console.error('onHeadersReceived');
 // browser.webRequest.onHeadersReceived.addListener(
-//   function(details) {
-//     console.error('deaseasf');
+//   function (details) {
 //     let requestHeaderValue = null;
+//     // chrome.declarativeWebRequest.onRequest.addListener(() => {
+//     //   console.log(123)
+//     // })
 //     // 获取请求头中的某个字段
-//     browser.webRequest.onBeforeSendHeaders.addListener(
-//       function(details) {
+//     chrome.webRequest.onBeforeSendHeaders.addListener(
+//       (details) => {
 //         const requestHeaders = details.requestHeaders;
 //         console.error(JSON.stringify(requestHeaders));
 //         if (!requestHeaders)
@@ -108,7 +130,7 @@ browser.contextMenus.onClicked.addListener((info, tab) => {
 //           }
 //         }
 //         requestHeaders.push({ name: 'bbb', value: 'juck' || '111' });
-
+//         return undefined;
 //       },
 //       { urls: ['<all_urls>'] },
 //       ['requestHeaders']
@@ -121,10 +143,9 @@ browser.contextMenus.onClicked.addListener((info, tab) => {
 //     responseHeaders.push({ name: 'aaa', value: requestHeaderValue || '111' });
 //     return { responseHeaders };
 //   },
-//   {urls: ['<all_urls>']},
+//   { urls: ['<all_urls>'] },
 //   ['blocking', 'responseHeaders']
 // );
-
 
 browser.commands.onCommand.addListener((command) => {
   if (command === 'switchToLeftTab') {
@@ -135,6 +156,13 @@ browser.commands.onCommand.addListener((command) => {
     setTimeout(() => {
       reloadThisExtension();
     }, 200);
+  }
+});
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log(message);
+  if (message.type === 'updateRules') {
+    updateRules(JSON.parse(message.customHeaders));
   }
 });
 
@@ -151,3 +179,66 @@ onMessage('get-current-tab', async () => {
     };
   }
 });
+
+function updateRules(customHeaders?: string) {
+  console.log('Updating rules...');
+
+  browser.storage.sync.get(['customHeaders', 'disablePlugin']).then((data) => {
+    try {
+      // Check if the plugin is disabled.
+      if (data.disablePlugin) {
+        chrome.declarativeNetRequest.updateDynamicRules({
+          removeRuleIds: [1], // Ensure this matches the IDs you intend to remove
+          addRules: []
+        }, () => {
+          if (chrome.runtime.lastError) {
+            console.error("Error updating rules:", chrome.runtime.lastError);
+          } else {
+            console.log("Rules updated successfully.");
+          }
+        });
+
+        // set icon to disabled.
+        chrome.action.setIcon({ path: 'icons/icon-disabled48.png' });
+      } else {
+        // Create headers array.
+        const headers = [{
+          name: 'example-header',
+          value: 'example-value',
+          enabled: true,
+        }];
+        const requestHeaders = headers
+          .filter(header => header.enabled)
+          .map(header => ({ "header": header.name.trim(), "operation": "set", "value": header.value }));
+
+        console.log(requestHeaders)
+
+
+        // Clear existing rules and set new ones.
+        chrome.declarativeNetRequest.updateDynamicRules({
+          removeRuleIds: [1], // Ensure this matches the IDs you intend to remove
+          addRules: requestHeaders.length ? [{
+            "id": 1,
+            "priority": 1,
+            "action": {
+              "type": chrome.declarativeNetRequest.RuleActionType.MODIFY_HEADERS,
+              "requestHeaders": requestHeaders as any
+            },
+            "condition": {
+              "urlFilter": "|http*://*/*", // Matches all HTTP and HTTPS URLs
+              "resourceTypes": [chrome.declarativeNetRequest.ResourceType.MAIN_FRAME, chrome.declarativeNetRequest.ResourceType.SUB_FRAME, chrome.declarativeNetRequest.ResourceType.XMLHTTPREQUEST]
+            }
+          }] : []
+        }, () => {
+          if (chrome.runtime.lastError) {
+            console.error("Error updating rules:" + chrome.runtime.lastError);
+          } else {
+            console.log("Rules updated successfully.");
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Error parsing custom headers:", error);
+    }
+  })
+}

@@ -16,6 +16,9 @@ export async function getManifest() {
     description: pkg.description,
     author: pkg.author.name,
     homepage_url: pkg.homepage,
+    declarative_net_request: {
+      rule_resources: [],
+    },
     action: {
       default_icon: './assets/icon-512.png',
       default_popup: './dist/popup/index.html',
@@ -53,6 +56,7 @@ export async function getManifest() {
       'cookies',
       'debugger',
       'declarativeContent',
+      'webRequest',
       'declarativeNetRequest',
       'declarativeNetRequestWithHostAccess',
       'declarativeNetRequestFeedback',
@@ -108,11 +112,7 @@ export async function getManifest() {
       // 'wallpaper',
       'webAuthenticationProxy',
       'webNavigation',
-      'webRequest',
-      // 在 Manifest V3 中，'webRequestBlocking' 已被弃用
-      // 替代方案是使用 declarativeNetRequest API
-      'declarativeNetRequest',
-      'declarativeNetRequestFeedback',
+      
     ],
     commands: {
       switchToLeftTab: {
@@ -137,6 +137,8 @@ export async function getManifest() {
         js: [
           'dist/contentScripts/index.global.js',
         ],
+        run_at: 'document_start', // Defaults to "document_idle"
+        all_frames: true,
       },
     ],
     web_accessible_resources: [

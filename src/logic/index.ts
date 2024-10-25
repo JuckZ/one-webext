@@ -19,6 +19,10 @@ export function switchToLeftTab() {
   });
 }
 
+export function openOptionsPage() {
+  browser.runtime.openOptionsPage()
+}
+
 export function cleanHistory(options: BrowsingData.RemovalOptions, dataToRemove: BrowsingData.DataTypeSet, callback: () => void) {
   if (Object.keys(options).length === 0) {
     const millisecondsPerWeek = 1000 * 60 * 60 * 24 * 7;
@@ -47,6 +51,12 @@ export function cleanHistory(options: BrowsingData.RemovalOptions, dataToRemove:
 export function setBadge({ text, color }: { text: string, color: string }) {
   chrome.action.setBadgeText({ text });
   chrome.action.setBadgeBackgroundColor({ color });
+}
+
+export function setSwitchBadge(switchValue: boolean) {
+  chrome.action.setBadgeText({text: switchValue ? 'ON' : 'OFF'});
+  chrome.action.setBadgeTextColor({ color: switchValue ? '#ffffff' : '#333333' });
+  chrome.action.setBadgeBackgroundColor({color: switchValue ? '#4480f7' : '#bfbfbf'});
 }
 
 export function reloadThisExtension() {

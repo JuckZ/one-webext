@@ -37,8 +37,8 @@ importers:
         specifier: ^1.46.1
         version: 1.46.1
       '@types/chrome':
-        specifier: ^0.0.237
-        version: 0.0.237
+        specifier: ^0.0.239
+        version: 0.0.239
       '@types/fs-extra':
         specifier: ^11.0.4
         version: 11.0.4
@@ -861,8 +861,8 @@ packages:
     resolution: {integrity: sha512-+PmQX0PiAYPMeVYe237LJAYvOMYW1j2rH5YROyS3b4CTVJum34HfRvKvAzozHAQG0TnHNdUfY9nCeUyRAs//cw==}
     engines: {node: '>=14.16'}
 
-  '@types/chrome@0.0.237':
-    resolution: {integrity: sha512-krsRmyfMlck5r+H1EapsrrucDRq6iRm0NAi5fapr93CgnpVMDdK+h2+z4x79GegdW7BNH9Vb//gkptORwwwVIQ==}
+  '@types/chrome@0.0.239':
+    resolution: {integrity: sha512-s/v0pAdpjqfYdwYPDIRiIQDyXfaLi5u+OyHW2NexhqoTm/KZVqKqS1isK11DVu/iUrAUULtbfKtzLKt3+kHgXQ==}
 
   '@types/eslint@9.6.1':
     resolution: {integrity: sha512-FXx2pKgId/WyYo2jXw63kk7/+TY7u7AziEJxJAnSFzHlqTAS3Ync6SvgYAN/k4/PQpnnVuzoMuVnByKK2qp0ag==}
@@ -5459,7 +5459,7 @@ snapshots:
     dependencies:
       defer-to-connect: 2.0.1
 
-  '@types/chrome@0.0.237':
+  '@types/chrome@0.0.239':
     dependencies:
       '@types/filesystem': 0.0.32
       '@types/har-format': 1.2.11
