@@ -127,6 +127,12 @@ export async function getManifest() {
         },
         description: 'Reload this extensions',
       },
+      wsInspector: {
+        suggested_key: {
+          default: `${ModifierKey}+W`,
+        },
+        description: 'Open WebSocket Inspector',
+      },
     },
     host_permissions: ['*://*/*'],
     content_scripts: [

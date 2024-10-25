@@ -27,6 +27,12 @@ browser.runtime.onInstalled.addListener((): void => {
     contexts: ['all'],
   });
 
+  browser.contextMenus.create({
+    id: 'wsInspector',
+    title: 'WebSocket Inspector',
+    contexts: ['all'],
+  });
+
   // browser.devtools.panels.create('test', '', 'xx.html').then((panel) => {
   //   console.log('panel', panel);
   // });
@@ -97,6 +103,8 @@ browser.tabs.onActivated.addListener(async ({ tabId }) => {
   sendMessage('tab-prev', { title: tab.title }, { context: 'content-script', tabId });
 });
 
+let tabId = 0;
+
 browser.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === 'openSidePanel') {
     // This will open the panel in all the pages on the current window.
@@ -107,6 +115,11 @@ browser.contextMenus.onClicked.addListener((info, tab) => {
     setTimeout(() => {
       reloadThisExtension();
     }, 200);
+  }
+
+  if (info.menuItemId === 'wsInspector') {
+    tabId = tab?.id || 0;
+    startDebugging();
   }
 });
 
@@ -163,6 +176,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log(message);
   if (message.type === 'updateRules') {
     updateRules(JSON.parse(message.customHeaders));
+  }
+  if (message.message === "reattach" && message.tabId === tabId) {
+    startDebugging();
   }
 });
 
@@ -241,4 +257,18 @@ function updateRules(customHeaders?: string) {
       console.error("Error parsing custom headers:", error);
     }
   })
+}
+
+function startDebugging() {
+  chrome.debugger.sendCommand({tabId}, "Network.enable", null, () => {
+    if (chrome.runtime.lastError) {
+      console.error(chrome.runtime.lastError.message);
+    } else {
+      console.log("Network enabled");
+    }
+  });
+
+  chrome.tabs.get(tabId, tab => {
+    console.log(tab)
+  });
 }
