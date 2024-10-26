@@ -1,6 +1,0 @@
-dist
-node_modules
-public
-pnpm-lock.yaml
-package.json
-tsconfig.json
