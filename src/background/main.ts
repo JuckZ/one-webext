@@ -169,14 +169,28 @@ browser.contextMenus.onClicked.addListener((info, tab) => {
 //   ['blocking', 'responseHeaders']
 // );
 
-browser.commands.onCommand.addListener((command) => {
+browser.commands.onCommand.addListener((command, tab) => {
   if (command === 'switchToLeftTab') {
     switchToLeftTab()
   }
-  if (command === 'reload') {
+  if (command === 'reloadThisExtension') {
     setBadge({ text: 'OK', color: '#4cb749' })
     setTimeout(() => {
       reloadThisExtension()
+    }, 200)
+  }
+  if (command === 'openDevtools') {
+    setBadge({ text: 'Dev', color: '#4cb749' })
+    setTimeout(() => {
+      chrome.runtime.openOptionsPage()
+    }, 200)
+  }
+  if (command === 'wsInspector') {
+    setBadge({ text: 'WS', color: '#4cb749' })
+    setTimeout(() => {
+      // tabId更新
+      tabId = tab?.id || 0
+      startDebugging()
     }, 200)
   }
 })

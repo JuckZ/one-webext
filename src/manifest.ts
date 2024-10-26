@@ -121,6 +121,12 @@ export async function getManifest() {
 
     ],
     commands: {
+      openDevtools: {
+        suggested_key: {
+          default: `${ModifierKey}+F`,
+        },
+        description: '打开插件审查界面',
+      },
       switchToLeftTab: {
         suggested_key: {
           default: `${ModifierKey}+E`,
