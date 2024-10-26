@@ -1,6 +1,6 @@
 <script lang="ts">
 import { ElMessage, ElMessageBox } from 'element-plus'
-import zhCn from 'element-plus/lib/locale/lang/zh-cn'
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import { defineComponent } from 'vue'
 import type { Bookmark, ElTableInstance, InvalidBookmark } from '~/interface'
 import { storageDemo } from '~/logic/storage'

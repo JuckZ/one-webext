@@ -9,13 +9,13 @@ importers:
   .:
     dependencies:
       '@element-plus/icons-vue':
-        specifier: ^1.1.4
-        version: 1.1.4(vue@3.5.12(typescript@5.6.3))
+        specifier: ^2.3.1
+        version: 2.3.1(vue@3.5.12(typescript@5.6.3))
       axios:
-        specifier: ^1.4.0
+        specifier: ^1.7.4
         version: 1.7.7
       element-plus:
-        specifier: ^2.1.11
+        specifier: ^2.8.3
         version: 2.8.6(vue@3.5.12(typescript@5.6.3))
       file-saver:
         specifier: ^2.0.5
@@ -276,11 +276,6 @@ packages:
 
   '@dprint/toml@0.6.3':
     resolution: {integrity: sha512-zQ42I53sb4WVHA+5yoY1t59Zk++Ot02AvUgtNKLzTT8mPyVqVChFcePa3on/xIoKEgH+RoepgPHzqfk9837YFw==}
-
-  '@element-plus/icons-vue@1.1.4':
-    resolution: {integrity: sha512-Iz/nHqdp1sFPmdzRwHkEQQA3lKvoObk8azgABZ81QUOpW9s/lUyQVUSh0tNtEPZXQlKwlSh7SPgoVxzrE0uuVQ==}
-    peerDependencies:
-      vue: ^3.2.0
 
   '@element-plus/icons-vue@2.3.1':
     resolution: {integrity: sha512-XxVUZv48RZAd87ucGS48jPf6pKu0yV5UCg9f4FFwtrYxXOwWuVJo6wOvSLKEoMQKjv8GsX/mhP6UsC1lRwbUWg==}
@@ -4615,10 +4610,6 @@ snapshots:
   '@dprint/markdown@0.17.8': {}
 
   '@dprint/toml@0.6.3': {}
-
-  '@element-plus/icons-vue@1.1.4(vue@3.5.12(typescript@5.6.3))':
-    dependencies:
-      vue: 3.5.12(typescript@5.6.3)
 
   '@element-plus/icons-vue@2.3.1(vue@3.5.12(typescript@5.6.3))':
     dependencies:

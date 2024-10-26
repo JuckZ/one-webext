@@ -1,6 +1,10 @@
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 import { bgCyan, black } from 'kolorist'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 export const port = Number(process.env.PORT || '') || 3303
 export const r = (...args: string[]) => resolve(__dirname, '..', ...args)
