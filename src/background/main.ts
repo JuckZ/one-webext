@@ -1,6 +1,6 @@
 import type { Tabs } from 'webextension-polyfill'
 import { onMessage, sendMessage } from 'webext-bridge/background'
-import { reloadThisExtension, setBadge, switchToLeftTab } from '~/logic'
+import { customHeader, reloadThisExtension, setBadge, switchToLeftTab } from '~/logic'
 
 // only on dev mode
 if (import.meta.hot) {
@@ -253,16 +253,12 @@ function updateRules(customHeaders?: string) {
       }
       else {
         // Create headers array.
-        const headers = [{
-          name: 'example-header',
-          value: 'example-value',
-          enabled: true,
-        }]
+        const headers = JSON.parse(`${customHeader.value || '[]'}`) as { name: string, value: string, enabled: boolean }[]
         const requestHeaders = headers
           .filter(header => header.enabled)
           .map(header => ({ header: header.name.trim(), operation: 'set', value: header.value }))
 
-        console.log(requestHeaders)
+        consoleLog(JSON.stringify(requestHeaders))
 
         // Clear existing rules and set new ones.
         chrome.declarativeNetRequest.updateDynamicRules({

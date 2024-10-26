@@ -4,8 +4,10 @@ import {
   Switch,
 } from '@element-plus/icons-vue'
 import axios from 'axios'
-import { clashHost, clashPort, clashSecret, switchToLeftTab } from '~/logic'
+import { clashHost, clashPort, clashSecret, customHeader, switchToLeftTab } from '~/logic'
+import { storageDemo } from '~/logic/storage'
 
+const customHeaderStr = ref(JSON.stringify(customHeader.value || '[]'))
 const info = ref('')
 const currentSelector = ref('')
 const currentProxy = ref('')
@@ -17,6 +19,10 @@ function openOptionsPage() {
 }
 function reload() {
   browser.runtime.reload()
+}
+
+function changeCustomHeader() {
+  customHeader.value = JSON.parse(customHeaderStr.value)
 }
 
 function loadClashConfig(clashHost: string, clashPort: string, clashSecret: string) {
@@ -93,6 +99,14 @@ onMounted(() => {
 
     <div>{{ info }} </div>
 
+    <el-input
+      v-model="customHeaderStr"
+      placeholder="请输入json对象"
+      show-word-limit
+      type="textarea"
+      @change="changeCustomHeader"
+    />
+
     <el-select
       v-model="currentSelector"
       class="m-2"
@@ -160,16 +174,16 @@ onMounted(() => {
     <div class="mt-2">
       <div class="opacity-50">
         storageDemo: {{ storageDemo }}
-      </div> {{ storageDemo }}
+      </div>
       <div class="opacity-50">
         clashHost: {{ clashHost }}
-      </div> {{ storageDemo }}
+      </div>
       <div class="opacity-50">
         clashPort: {{ clashPort }}
-      </div> {{ storageDemo }}
+      </div>
       <div class="opacity-50">
         clashSecret: {{ clashSecret }}
-      </div> {{ storageDemo }}
+      </div>
     </div>
   </main>
 </template>

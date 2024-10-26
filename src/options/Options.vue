@@ -9,11 +9,6 @@ import native from '~/utils/native'
 import Scheduler from '~/utils/scheduler'
 import Whitelist from '~/utils/whitelist'
 
-// FIXME 更新eslint配置，无法检测到如下错误
-// function loadClashConfig() {
-//   await 213;
-// }
-
 export default defineComponent({
   name: 'Home',
   data() {
