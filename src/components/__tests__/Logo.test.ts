@@ -1,11 +1,11 @@
-import { describe, expect, it } from 'vitest';
-import { mount } from '@vue/test-utils';
-import Logo from '../Logo.vue';
+import { mount } from '@vue/test-utils'
+import { describe, expect, it } from 'vitest'
+import Logo from '../Logo.vue'
 
-describe('Logo Component', () => {
+describe('logo Component', () => {
   it('should render', () => {
-    const wrapper = mount(Logo);
+    const wrapper = mount(Logo)
 
-    expect(wrapper.html()).toBeTruthy();
-  });
-});
+    expect(wrapper.html()).toBeTruthy()
+  })
+})

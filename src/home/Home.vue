@@ -1,91 +1,91 @@
 <script setup lang="ts">
+import type { TabsPaneContext } from 'element-plus'
+import type { History, Sessions, Tabs } from 'webextension-polyfill'
 import {
   Delete,
   Edit,
   More,
   Search,
   Star,
-} from '@element-plus/icons-vue';
-import type { History, Sessions, Tabs } from 'webextension-polyfill';
-import type { TabsPaneContext } from 'element-plus';
-import { switchToLeftTab } from '~/logic';
-import native from '~/utils/native';
-import type { Bookmark } from '~/interface';
+} from '@element-plus/icons-vue'
+import type { Bookmark } from '~/interface'
+import { switchToLeftTab } from '~/logic'
+import native from '~/utils/native'
 
-type Tab = Tabs.Tab;
+type Tab = Tabs.Tab
 
-const searchKeyword = ref('');
-const searchEngine = ref('1');
-const activeName = ref('first');
+const searchKeyword = ref('')
+const searchEngine = ref('1')
+const activeName = ref('first')
 
 const handleClick = (tab: TabsPaneContext, event: Event) => {
-  console.error(tab, event);
-};
-const recentlyClosedTabs: Sessions.Session[] = ref<Tab[]>([]);
-const historyList: History.HistoryItem[] = ref<Tab[]>([]);
-const bookmarks: History.HistoryItem[] = ref<Tab[]>([]);
+  console.error(tab, event)
+}
+const recentlyClosedTabs: Sessions.Session[] = ref<Tab[]>([])
+const historyList: History.HistoryItem[] = ref<Tab[]>([])
+const bookmarks: History.HistoryItem[] = ref<Tab[]>([])
 
 function openOptionsPage() {
-  browser.runtime.openOptionsPage();
+  browser.runtime.openOptionsPage()
 }
 function reload() {
-  browser.runtime.reload();
+  browser.runtime.reload()
 }
 function goTo(url: string) {
-  browser.tabs.create({ url });
+  browser.tabs.create({ url })
 }
 async function getHistoryList() {
-  return browser.history.search({ text: '', maxResults: 20 });
+  return browser.history.search({ text: '', maxResults: 20 })
 }
 async function getRecentlyClosedTabs() {
-  return browser.sessions.getRecentlyClosed();
+  return browser.sessions.getRecentlyClosed()
 }
 function rmRecently(session: Sessions.Session) {
   browser.sessions.forgetClosedTab(session.tab.windowId, session.tab.sessionId).then(async () => {
-    recentlyClosedTabs.value = await getRecentlyClosedTabs();
-  });
+    recentlyClosedTabs.value = await getRecentlyClosedTabs()
+  })
 }
 function rmHistory(history: History.HistoryItem) {
   browser.history.deleteUrl({ url: history.url }).then(async () => {
-    historyList.value = await getHistoryList();
-  });
+    historyList.value = await getHistoryList()
+  })
 }
 function rmBookmark(bookmark: Bookmark[]) {
   browser.bookmarks.remove(bookmark.id).then(async () => {
-    bookmarks.value = (await native.getBookmarks()).slice(0, 20);
-  });
+    bookmarks.value = (await native.getBookmarks()).slice(0, 20)
+  })
 }
 function handleSearch() {
   const url = (() => {
     switch (searchEngine.value) {
-    case '1':
-      return `https://www.google.com/search?q=${searchKeyword.value}`;
-    case '2':
-      return `https://www.baidu.com/s?wd=${searchKeyword.value}`;
-    case '3':
-      return `https://cn.bing.com/search?q=${searchKeyword.value}`;
-    case '4':
-      return `https://www.sogou.com/web?query=${searchKeyword.value}`;
-    case '5':
-      return `https://duckduckgo.com/?q=${searchKeyword.value}`;
-    default:
-      return `https://www.google.com/search?q=${searchKeyword.value}`;
+      case '1':
+        return `https://www.google.com/search?q=${searchKeyword.value}`
+      case '2':
+        return `https://www.baidu.com/s?wd=${searchKeyword.value}`
+      case '3':
+        return `https://cn.bing.com/search?q=${searchKeyword.value}`
+      case '4':
+        return `https://www.sogou.com/web?query=${searchKeyword.value}`
+      case '5':
+        return `https://duckduckgo.com/?q=${searchKeyword.value}`
+      default:
+        return `https://www.google.com/search?q=${searchKeyword.value}`
     }
-  })();
-  goTo(url);
+  })()
+  goTo(url)
 }
 onMounted(async () => {
-  recentlyClosedTabs.value = await getRecentlyClosedTabs();
-  historyList.value = await getHistoryList();
-  bookmarks.value = (await native.getBookmarks()).slice(0, 20);
-});
+  recentlyClosedTabs.value = await getRecentlyClosedTabs()
+  historyList.value = await getHistoryList()
+  bookmarks.value = (await native.getBookmarks()).slice(0, 20)
+})
 </script>
 
 <template>
   <el-container>
     <el-header>
       <div class="flex">
-        <Logo class="w10 mr-4" />
+        <Logo class="mr-4 w10" />
         <SharedSubtitle />
       </div>
     </el-header>
@@ -370,7 +370,7 @@ onMounted(async () => {
                             </div>
                           </el-tooltip>
                         </el-link>
-                        <div class="color-black flex flex-col">
+                        <div class="flex flex-col color-black">
                           <time>{{ `上次编辑: ${session.tab.lastModified}` }}</time>
                           <time>{{ `上次访问: ${session.tab.lastAccessed}` }}</time>
                         </div>

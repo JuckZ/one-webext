@@ -1,18 +1,18 @@
 /// <reference types="vitest" />
 
-import { dirname, relative } from 'node:path'
 import type { UserConfig } from 'vite'
-import { defineConfig } from 'vite'
+import { dirname, relative } from 'node:path'
 import Vue from '@vitejs/plugin-vue'
-import Icons from 'unplugin-icons/vite'
-import IconsResolver from 'unplugin-icons/resolver'
-import Components from 'unplugin-vue-components/vite'
+import UnoCSS from 'unocss/vite'
 import AutoImport from 'unplugin-auto-import/vite'
 import ElementPlus from 'unplugin-element-plus'
+import IconsResolver from 'unplugin-icons/resolver'
+import Icons from 'unplugin-icons/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
-import UnoCSS from 'unocss/vite'
-import { isDev, port, r } from './scripts/utils'
+import Components from 'unplugin-vue-components/vite'
+import { defineConfig } from 'vite'
 import packageJson from './package.json'
+import { isDev, port, r } from './scripts/utils'
 
 export const sharedConfig: UserConfig = {
   root: r('src'),
@@ -95,7 +95,7 @@ export default defineConfig(({ command }) => ({
     hmr: {
       host: 'localhost',
     },
-    origin: `http://localhost:${port}`
+    origin: `http://localhost:${port}`,
   },
   // css: {
   //   preprocessorOptions: {

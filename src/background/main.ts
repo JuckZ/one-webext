@@ -1,14 +1,14 @@
-import { onMessage, sendMessage } from 'webext-bridge/background';
-import type { Tabs } from 'webextension-polyfill';
-import { switchToLeftTab, reloadThisExtension, setBadge } from '~/logic';
+import type { Tabs } from 'webextension-polyfill'
+import { onMessage, sendMessage } from 'webext-bridge/background'
+import { reloadThisExtension, setBadge, switchToLeftTab } from '~/logic'
 
 // only on dev mode
 if (import.meta.hot) {
   // @ts-expect-error for background HMR
-  // eslint-disable-next-line import/no-unresolved
-  import('/@vite/client');
+
+  import('/@vite/client')
   // load latest content script
-  import('./contentScriptHMR');
+  import('./contentScriptHMR')
 }
 
 // remove or turn this off if you don't use side panel
@@ -23,116 +23,114 @@ if (import.meta.hot) {
 // }
 
 browser.runtime.onInstalled.addListener((): void => {
-  updateRules();
-  // eslint-disable-next-line no-console
-  console.log('Extension installed');
+  updateRules()
+
+  console.log('Extension installed')
   browser.contextMenus.create({
     id: 'openSidePanel',
     title: 'Open side panel',
     contexts: ['all'],
-  });
+  })
 
   browser.contextMenus.create({
     id: 'reloadThisExtension',
     title: 'Reload this extension',
     contexts: ['all'],
-  });
+  })
 
   browser.contextMenus.create({
     id: 'wsInspector',
     title: 'WebSocket Inspector',
     contexts: ['all'],
-  });
+  })
 
   // browser.devtools.panels.create('test', '', 'xx.html').then((panel) => {
   //   console.log('panel', panel);
   // });
-});
-
+})
 
 // on activate plugin, update rules.
 browser.runtime.onStartup.addListener(() => {
-  updateRules();
-  console.log('Extension started.');
-});
+  updateRules()
+  console.log('Extension started.')
+})
 
 // on update plugin, update rules.
 browser.runtime.onUpdateAvailable.addListener(() => {
-  updateRules();
-  console.log('Extension updated.');
-});
+  updateRules()
+  console.log('Extension updated.')
+})
 
-let previousTabId = 0;
+let previousTabId = 0
 
-const GOOGLE_ORIGIN = 'https://google.com';
+const GOOGLE_ORIGIN = 'https://google.com'
 browser.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   if (!tab.url)
-    return;
-  const url = new URL(tab.url);
+    return
+  const url = new URL(tab.url)
   if (url.origin === GOOGLE_ORIGIN) {
     await browser.sidePanel.setOptions({
       tabId,
       enabled: false,
-    });
+    })
   }
   else {
     await browser.sidePanel.setOptions({
       tabId,
       path: './dist/sidebar/index.html',
       enabled: true,
-    });
+    })
   }
-});
+})
 
 /**
  * manifest.json 中 action 的点击事件，没有default_popup时，点击时会触发
  */
 chrome.action.onClicked.addListener(() => {
-  console.log('onClicked');
-});
+  console.log('onClicked')
+})
 
 // communication example: send previous tab title from background page
 // see shim.d.ts for type declaration
 browser.tabs.onActivated.addListener(async ({ tabId }) => {
   if (!previousTabId) {
-    previousTabId = tabId;
-    return;
+    previousTabId = tabId
+    return
   }
 
-  let tab: Tabs.Tab;
+  let tab: Tabs.Tab
 
   try {
-    tab = await browser.tabs.get(previousTabId);
-    previousTabId = tabId;
+    tab = await browser.tabs.get(previousTabId)
+    previousTabId = tabId
   }
   catch {
-    return;
+    return
   }
 
-  // eslint-disable-next-line no-console
-  console.log('previous tab', tab);
-  sendMessage('tab-prev', { title: tab.title }, { context: 'content-script', tabId });
-});
+  console.log('previous tab', tab)
+  sendMessage('tab-prev', { title: tab.title }, { context: 'content-script', tabId })
+})
 
-let tabId = 0;
+let tabId = 0
 
 browser.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === 'openSidePanel') {
     // This will open the panel in all the pages on the current window.
-    browser.sidePanel.open({ tabId: tab?.id });
+    browser.sidePanel.open({ tabId: tab?.id })
   }
   if (info.menuItemId === 'reloadThisExtension') {
-    setBadge({ text: 'OK', color: '#4cb749' });
+    setBadge({ text: 'OK', color: '#4cb749' })
     setTimeout(() => {
-      reloadThisExtension();
-    }, 200);
+      reloadThisExtension()
+    }, 200)
   }
 
   if (info.menuItemId === 'wsInspector') {
-    tabId = tab?.id || 0;
-    startDebugging();
+    tabId = tab?.id || 0
+    startDebugging()
   }
-});
+})
 
 // browser.webRequest.onHeadersReceived.addListener(
 //   function (details) {
@@ -173,42 +171,42 @@ browser.contextMenus.onClicked.addListener((info, tab) => {
 
 browser.commands.onCommand.addListener((command) => {
   if (command === 'switchToLeftTab') {
-    switchToLeftTab();
+    switchToLeftTab()
   }
   if (command === 'reload') {
-    setBadge({ text: 'OK', color: '#4cb749' });
+    setBadge({ text: 'OK', color: '#4cb749' })
     setTimeout(() => {
-      reloadThisExtension();
-    }, 200);
+      reloadThisExtension()
+    }, 200)
   }
-});
+})
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log(message);
+  console.log(message)
   if (message.type === 'updateRules') {
-    updateRules(JSON.parse(message.customHeaders));
+    updateRules(JSON.parse(message.customHeaders))
   }
   if (message.message === "reattach" && message.tabId === tabId) {
-    startDebugging();
+    startDebugging()
   }
-});
+})
 
 onMessage('get-current-tab', async () => {
   try {
-    const tab = await browser.tabs.get(previousTabId);
+    const tab = await browser.tabs.get(previousTabId)
     return {
       title: tab?.title,
-    };
+    }
   }
   catch {
     return {
       title: undefined,
-    };
+    }
   }
-});
+})
 
 function updateRules(customHeaders?: string) {
-  console.log('Updating rules...');
+  console.log('Updating rules...')
 
   browser.storage.sync.get(['customHeaders', 'disablePlugin']).then((data) => {
     try {
@@ -216,30 +214,29 @@ function updateRules(customHeaders?: string) {
       if (data.disablePlugin) {
         chrome.declarativeNetRequest.updateDynamicRules({
           removeRuleIds: [1], // Ensure this matches the IDs you intend to remove
-          addRules: []
+          addRules: [],
         }, () => {
           if (chrome.runtime.lastError) {
-            console.error("Error updating rules:", chrome.runtime.lastError);
+            console.error("Error updating rules:", chrome.runtime.lastError)
           } else {
-            console.log("Rules updated successfully.");
+            console.log("Rules updated successfully.")
           }
-        });
+        })
 
         // set icon to disabled.
-        chrome.action.setIcon({ path: 'icons/icon-disabled48.png' });
+        chrome.action.setIcon({ path: 'icons/icon-disabled48.png' })
       } else {
         // Create headers array.
         const headers = [{
           name: 'example-header',
           value: 'example-value',
           enabled: true,
-        }];
+        }]
         const requestHeaders = headers
           .filter(header => header.enabled)
-          .map(header => ({ "header": header.name.trim(), "operation": "set", "value": header.value }));
+          .map(header => ({ "header": header.name.trim(), "operation": "set", "value": header.value }))
 
         console.log(requestHeaders)
-
 
         // Clear existing rules and set new ones.
         chrome.declarativeNetRequest.updateDynamicRules({
@@ -249,37 +246,37 @@ function updateRules(customHeaders?: string) {
             "priority": 1,
             "action": {
               "type": chrome.declarativeNetRequest.RuleActionType.MODIFY_HEADERS,
-              "requestHeaders": requestHeaders as any
+              "requestHeaders": requestHeaders as any,
             },
             "condition": {
               "urlFilter": "|http*://*/*", // Matches all HTTP and HTTPS URLs
-              "resourceTypes": [chrome.declarativeNetRequest.ResourceType.MAIN_FRAME, chrome.declarativeNetRequest.ResourceType.SUB_FRAME, chrome.declarativeNetRequest.ResourceType.XMLHTTPREQUEST]
-            }
-          }] : []
+              "resourceTypes": [chrome.declarativeNetRequest.ResourceType.MAIN_FRAME, chrome.declarativeNetRequest.ResourceType.SUB_FRAME, chrome.declarativeNetRequest.ResourceType.XMLHTTPREQUEST],
+            },
+          }] : [],
         }, () => {
           if (chrome.runtime.lastError) {
-            console.error("Error updating rules:" + chrome.runtime.lastError);
+            console.error("Error updating rules:" + chrome.runtime.lastError)
           } else {
-            console.log("Rules updated successfully.");
+            console.log("Rules updated successfully.")
           }
-        });
+        })
       }
     } catch (error) {
-      console.error("Error parsing custom headers:", error);
+      console.error("Error parsing custom headers:", error)
     }
   })
 }
 
 function startDebugging() {
-  chrome.debugger.sendCommand({tabId}, "Network.enable", null, () => {
+  chrome.debugger.sendCommand({ tabId }, "Network.enable", null, () => {
     if (chrome.runtime.lastError) {
-      console.error(chrome.runtime.lastError.message);
+      console.error(chrome.runtime.lastError.message)
     } else {
-      console.log("Network enabled");
+      console.log("Network enabled")
     }
-  });
+  })
 
   chrome.tabs.get(tabId, tab => {
     console.log(tab)
-  });
+  })
 }

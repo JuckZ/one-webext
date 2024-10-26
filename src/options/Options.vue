@@ -1,13 +1,13 @@
 <script lang="ts">
-import { defineComponent } from 'vue';
-import zhCn from 'element-plus/lib/locale/lang/zh-cn';
-import { ElMessage, ElMessageBox } from 'element-plus';
-import type { Bookmark, ElTableInstance, InvalidBookmark } from '~/interface';
-import Scheduler from '~/utils/scheduler';
-import { checkURL } from '~/utils/check';
-import native from '~/utils/native';
-import Whitelist from '~/utils/whitelist';
-import { storageDemo } from '~/logic/storage';
+import { ElMessage, ElMessageBox } from 'element-plus'
+import zhCn from 'element-plus/lib/locale/lang/zh-cn'
+import { defineComponent } from 'vue'
+import type { Bookmark, ElTableInstance, InvalidBookmark } from '~/interface'
+import { storageDemo } from '~/logic/storage'
+import { checkURL } from '~/utils/check'
+import native from '~/utils/native'
+import Scheduler from '~/utils/scheduler'
+import Whitelist from '~/utils/whitelist'
 
 // FIXME 更新eslint配置，无法检测到如下错误
 // function loadClashConfig() {
@@ -35,44 +35,44 @@ export default defineComponent({
       scheduler: new Scheduler(10),
       selectedData: [] as InvalidBookmark[],
       storageDemo,
-    };
+    }
   },
   computed: {
     checkButtonText(): string {
-      const start = this.checkStartIndex;
+      const start = this.checkStartIndex
       return this.checkLoading
         ? '检测中...'
-        : start === 0 ? '开始检测' : '继续检测';
+        : start === 0 ? '开始检测' : '继续检测'
     },
     clearDisabled(): boolean {
-      return this.invalidBookmarks.length === 0;
+      return this.invalidBookmarks.length === 0
     },
     clearButtonTitle(): string {
-      return this.clearDisabled ? '暂无失效书签可以清理' : '';
+      return this.clearDisabled ? '暂无失效书签可以清理' : ''
     },
     clearSelectedDisabled(): boolean {
-      return this.selectedData.length === 0;
+      return this.selectedData.length === 0
     },
     isPageSelected(): boolean {
       return this.tableData.length > 0
-                && this.selectedData.length === this.tableData.length;
+                && this.selectedData.length === this.tableData.length
     },
   },
   watch: {
     percentage(val) {
-      const currentVal = Math.round(val);
+      const currentVal = Math.round(val)
       if (currentVal >= 100) {
         // console.log('[check finished]', this.checkStartIndex)
-        this.showProgress = false;
-        this.checkLoading = false;
-        setTimeout(() => this.checkStartIndex = 0, 1000);
-        this.percentage = 0;
-        this.queryList();
+        this.showProgress = false
+        this.checkLoading = false
+        setTimeout(() => this.checkStartIndex = 0, 1000)
+        this.percentage = 0
+        this.queryList()
       }
     },
   },
   async mounted() {
-    this.bookmarks = await native.getBookmarks();
+    this.bookmarks = await native.getBookmarks()
 
     // mock
     // let testNode = {
@@ -87,147 +87,147 @@ export default defineComponent({
       this.tableData = this.invalidBookmarks.slice(
         (this.currentPage - 1) * this.pageSize,
         this.currentPage * this.pageSize,
-      );
-      this.total = this.invalidBookmarks.length;
+      )
+      this.total = this.invalidBookmarks.length
     },
     handleCurrentChange() {
-      this.queryList();
+      this.queryList()
     },
     handleSizeChange() {
-      this.currentPage = 1;
-      this.queryList();
+      this.currentPage = 1
+      this.queryList()
     },
     resetList() {
-      this.currentPage = 1;
-      this.pageSize = 10;
-      this.tableData = [];
-      this.total = 0;
+      this.currentPage = 1
+      this.pageSize = 10
+      this.tableData = []
+      this.total = 0
     },
     startCheck() {
       this.bookmarks = this.bookmarks
-        .filter(item => item.url && !this.whitelist.has(item.url));
-      const list = this.bookmarks.slice(this.checkStartIndex);
-      const step = 100 / this.bookmarks.length;
+        .filter(item => item.url && !this.whitelist.has(item.url))
+      const list = this.bookmarks.slice(this.checkStartIndex)
+      const step = 100 / this.bookmarks.length
       // console.log('[startCheck]', this.checkStartIndex, step)
-      this.showProgress = true;
-      this.checkLoading = true;
+      this.showProgress = true
+      this.checkLoading = true
       for (const item of list) {
         this.scheduler.add(() => checkURL(item.url, this.timeout))
           .catch((error) => {
             this.invalidBookmarks.push({
               ...item,
               error,
-            });
+            })
           })
           .finally(() => {
-            this.checkStartIndex++;
-            this.percentage += step;
-          });
+            this.checkStartIndex++
+            this.percentage += step
+          })
       }
     },
     stopCheck() {
       // console.log('[stopCheck]', this.checkStartIndex, this.bookmarks.length)
-      this.scheduler.clear();
-      this.showProgress = false;
-      this.checkLoading = false;
-      this.queryList();
+      this.scheduler.clear()
+      this.showProgress = false
+      this.checkLoading = false
+      this.queryList()
     },
     resetCheck() {
-      this.scheduler.clear();
-      this.timeout = 10;
-      this.invalidBookmarks = [];
-      this.checkStartIndex = 0;
-      this.percentage = 0;
-      this.showProgress = false;
-      this.checkLoading = false;
-      this.resetList();
+      this.scheduler.clear()
+      this.timeout = 10
+      this.invalidBookmarks = []
+      this.checkStartIndex = 0
+      this.percentage = 0
+      this.showProgress = false
+      this.checkLoading = false
+      this.resetList()
     },
     deleteBookmark(data: InvalidBookmark | InvalidBookmark[]) {
       if (!Array.isArray(data))
-        data = [data];
+        data = [data]
 
       for (const item of data) {
-        browser.bookmarks.remove(item.id);
-        this.checkStartIndex--;
+        browser.bookmarks.remove(item.id)
+        this.checkStartIndex--
       }
 
-      const ids = data.map(item => item.id);
-      this.bookmarks = this.bookmarks.filter(item => !ids.includes(item.id));
-      this.invalidBookmarks = this.invalidBookmarks.filter(item => !ids.includes(item.id));
-      this.queryList();
+      const ids = data.map(item => item.id)
+      this.bookmarks = this.bookmarks.filter(item => !ids.includes(item.id))
+      this.invalidBookmarks = this.invalidBookmarks.filter(item => !ids.includes(item.id))
+      this.queryList()
     },
     ignore(data: InvalidBookmark | InvalidBookmark[]) {
       if (!Array.isArray(data))
-        data = [data];
+        data = [data]
 
-      const ids: string[] = [];
-      const urls = [];
+      const ids: string[] = []
+      const urls = []
       for (const item of data) {
-        this.checkStartIndex--;
-        ids.push(item.id);
-        item.url && urls.push(item.url);
+        this.checkStartIndex--
+        ids.push(item.id)
+        item.url && urls.push(item.url)
       }
 
-      this.whitelist.add(urls);
-      this.bookmarks = this.bookmarks.filter(item => !ids.includes(item.id));
-      this.invalidBookmarks = this.invalidBookmarks.filter(item => !ids.includes(item.id));
-      this.queryList();
+      this.whitelist.add(urls)
+      this.bookmarks = this.bookmarks.filter(item => !ids.includes(item.id))
+      this.invalidBookmarks = this.invalidBookmarks.filter(item => !ids.includes(item.id))
+      this.queryList()
     },
     changeURL(row: InvalidBookmark) {
       if (!row.url)
-        ElMessage.warning('链接不能为空！');
+        ElMessage.warning('链接不能为空！')
 
-      browser.bookmarks.update(row.id, { url: row.url });
-      this.tableLoading = true;
+      browser.bookmarks.update(row.id, { url: row.url })
+      this.tableLoading = true
       checkURL(row.url, this.timeout)
         .then(() => {
-          ElMessage.success('新链接有效~');
-          row.error = new Error('---');
-          this.ignore(row);
+          ElMessage.success('新链接有效~')
+          row.error = new Error('---')
+          this.ignore(row)
         })
         .catch((error) => {
-          row.error = error;
+          row.error = error
         })
         .finally(() => {
-          this.tableLoading = false;
-          row.editing = false;
-        });
+          this.tableLoading = false
+          row.editing = false
+        })
     },
     async clearAll() {
       try {
         await ElMessageBox.confirm('清理前最好备份一下哦~，点击确定开始清理', '提示', {
           type: 'info',
-        });
-        this.deleteBookmark(this.invalidBookmarks);
-        this.resetCheck();
+        })
+        this.deleteBookmark(this.invalidBookmarks)
+        this.resetCheck()
       }
       catch (error) {
-        console.error(error);
+        console.error(error)
       }
     },
     async clearSelected() {
       try {
         await ElMessageBox.confirm('确定清理选中的书签吗？', '提示', {
           type: 'info',
-        });
-        this.deleteBookmark(this.selectedData);
+        })
+        this.deleteBookmark(this.selectedData)
       }
       catch (error) {
-        console.error(error);
+        console.error(error)
       }
     },
     selectPage() {
       if (this.$refs && this.$refs.tableComp)
-        (this.$refs.tableComp as ElTableInstance).toggleAllSelection();
+        (this.$refs.tableComp as ElTableInstance).toggleAllSelection()
     },
     handleSelectionChange(val: InvalidBookmark[]) {
-      this.selectedData = val;
+      this.selectedData = val
     },
     formatProgress(percentage: number) {
-      return percentage >= 100 ? '100%' : `${Number(percentage).toFixed(2)}%`;
+      return percentage >= 100 ? '100%' : `${Number(percentage).toFixed(2)}%`
     },
   },
-});
+})
 </script>
 
 <template>
@@ -235,7 +235,7 @@ export default defineComponent({
     <main class="px-4 py-10 text-center text-gray-700 dark:text-gray-200">
       <img
         src="/assets/icon.png"
-        class="icon-btn w-20 mx-2 text-2xl"
+        class="icon-btn mx-2 w-20 text-2xl"
         alt="extension icon"
       >
       <div>Options</div>
@@ -243,11 +243,11 @@ export default defineComponent({
 
       <input
         v-model="storageDemo"
-        class="border border-gray-400 rounded px-2 py-1 mt-2"
+        class="mt-2 border border-gray-400 rounded px-2 py-1"
       >
 
       <div class="mt-4">
-        By Juck <pixelarticons-zap class="align-middle inline-block" />
+        By Juck <pixelarticons-zap class="inline-block align-middle" />
       </div>
     </main>
     <el-form inline>
@@ -436,64 +436,64 @@ export default defineComponent({
 
 <style lang="less">
 [v-cloak] {
-    display: none;
+  display: none;
 }
 
 body {
-    margin: 0;
-    padding: 20px;
+  margin: 0;
+  padding: 20px;
 }
 
 ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+  width: 10px;
+  height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-    background-color: #0003;
-    border-radius: 10px;
-    transition: all .2s ease-in-out;
+  background-color: #0003;
+  border-radius: 10px;
+  transition: all 0.2s ease-in-out;
 }
 ::-webkit-scrollbar-track {
-    border-radius: 10px;
+  border-radius: 10px;
 }
 
 .link-box {
-    max-width: 100%;
+  max-width: 100%;
 }
 
 .link-box .el-link__inner {
-    overflow: hidden;
+  overflow: hidden;
 }
 
 .overflow {
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .icon-btn--inline {
-    height: auto;
-    padding: 0;
-    font-size: 18px;
+  height: auto;
+  padding: 0;
+  font-size: 18px;
 }
 
 .flex-box {
-    display: flex;
-    align-items: center;
-    width: 90%;
+  display: flex;
+  align-items: center;
+  width: 90%;
 
-    &--end {
-        align-items: flex-end;
-    }
+  &--end {
+    align-items: flex-end;
+  }
 
-    .el-button:last-child {
-        flex-shrink: 0;
-    }
+  .el-button:last-child {
+    flex-shrink: 0;
+  }
 }
 
 .footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
 }
 </style>

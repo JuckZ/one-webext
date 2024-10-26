@@ -11,9 +11,9 @@ function reload() {
 
 <template>
   <main>
-    <div class="absolute top-4 left-1/2 transform -translate-x-1/2">
+    <div class="absolute left-1/2 top-4 transform -translate-x-1/2">
       <div class="flex">
-        <Logo class="w10 mr-4" />
+        <Logo class="mr-4 w10" />
         <SharedSubtitle />
       </div>
       <div class="mt-2">
@@ -25,6 +25,6 @@ function reload() {
         </button>
       </div>
     </div>
-    <iframe src="https://limestart.cn/" class="border-none w-100vw h-100vh" frameborder="0" />
+    <iframe src="https://limestart.cn/" class="h-100vh w-100vw border-none" frameborder="0" />
   </main>
 </template>

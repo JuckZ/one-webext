@@ -33,7 +33,7 @@ export default antfu(
       markdown: 'prettier',
     },
     // `.eslintignore` is no longer supported in Flat config, use `ignores` instead
-    ignores: ["**/fixtures", "dist","**/dist/**","node_modules","**/node_modules/**","public","**/public/**","pnpm-lock.yaml","**/pnpm-lock.yaml/**","package.json","**/package.json/**","tsconfig.json","**/tsconfig.json/**"]
+    ignores: ["**/fixtures", "dist", "**/dist/**", "node_modules", "**/node_modules/**", "public", "**/public/**", "pnpm-lock.yaml", "**/pnpm-lock.yaml/**", "package.json", "**/package.json/**", "tsconfig.json", "**/tsconfig.json/**"],
   },
   {
     files: ["**/*.{js,jsx,ts,tsx,vue}"],

@@ -1,11 +1,11 @@
-import fs from 'fs-extra';
-import type { Manifest } from 'webextension-polyfill';
-import type PkgType from '../package.json';
-import { isDev, isFirefox, port, r } from '../scripts/utils';
+import type { Manifest } from 'webextension-polyfill'
+import type PkgType from '../package.json'
+import fs from 'fs-extra'
+import { isDev, isFirefox, port, r } from '../scripts/utils'
 
 export async function getManifest() {
-  const pkg = await fs.readJSON(r('package.json')) as typeof PkgType;
-  const ModifierKey = 'Alt+Shift';
+  const pkg = await fs.readJSON(r('package.json')) as typeof PkgType
+  const ModifierKey = 'Alt+Shift'
 
   // update this file to update this manifest.json
   // can also be conditional based on your need
@@ -116,7 +116,7 @@ export async function getManifest() {
       // 'wallpaper',
       'webAuthenticationProxy',
       'webNavigation',
-      
+
     ],
     commands: {
       switchToLeftTab: {
@@ -163,8 +163,8 @@ export async function getManifest() {
         ? `script-src \'self\' http://localhost:${port}; object-src \'self\'`
         : 'script-src \'self\'; object-src \'self\'',
     },
-  };
-  
+  }
+
   // add sidepanel
   if (isFirefox) {
     manifest.sidebar_action = {
@@ -179,14 +179,14 @@ export async function getManifest() {
   }
 
   // FIXME: not work in MV3
-  // eslint-disable-next-line no-constant-condition
+
   if (isDev && false) {
     // for content script, as browsers will cache them for each reload,
     // we use a background script to always inject the latest version
     // see src/background/contentScriptHMR.ts
-    delete manifest.content_scripts;
-    manifest.permissions?.push('webNavigation');
+    delete manifest.content_scripts
+    manifest.permissions?.push('webNavigation')
   }
 
-  return manifest;
+  return manifest
 }
