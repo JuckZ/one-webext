@@ -1,6 +1,5 @@
 class Scheduler {
-  // eslint-disable-next-line @typescript-eslint/ban-types
-  queue: Function[]
+  queue: (() => unknown)[]
   limit: number
   activeCount: number
 
@@ -57,7 +56,10 @@ class Scheduler {
     if (this.pendingCount > 0 && this.activeCount < this.limit) {
       const task = this.queue.shift()
       this.activeCount++
-      task && task()
+
+      if (task) {
+        task()
+      }
     }
   }
 

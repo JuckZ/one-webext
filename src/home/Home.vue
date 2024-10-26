@@ -18,7 +18,7 @@ const searchKeyword = ref('')
 const searchEngine = ref('1')
 const activeName = ref('first')
 
-const handleClick = (tab: TabsPaneContext, event: Event) => {
+function handleClick(tab: TabsPaneContext, event: Event) {
   console.error(tab, event)
 }
 const recentlyClosedTabs: Sessions.Session[] = ref<Tab[]>([])

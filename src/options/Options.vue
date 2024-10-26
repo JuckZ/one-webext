@@ -55,7 +55,7 @@ export default defineComponent({
     },
     isPageSelected(): boolean {
       return this.tableData.length > 0
-                && this.selectedData.length === this.tableData.length
+        && this.selectedData.length === this.tableData.length
     },
   },
   watch: {

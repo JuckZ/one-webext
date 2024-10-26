@@ -12,7 +12,7 @@ declare module 'webext-bridge' {
 declare module 'webextension-polyfill' {
   // FIXME for chrome now
   declare const sidePanel = {
-    setOptions: ({ tabId, windowId, path, enable }: { tabId?: number; path?: string; enabled?: boolean; }) => {},
+    setOptions: ({ tabId, windowId, path, enable }: { tabId?: number, path?: string, enabled?: boolean }) => {},
     open: (options: OpenOptions, callback?: function) => {},
   }
   namespace Manifest {

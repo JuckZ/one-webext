@@ -186,7 +186,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'updateRules') {
     updateRules(JSON.parse(message.customHeaders))
   }
-  if (message.message === "reattach" && message.tabId === tabId) {
+  if (message.message === 'reattach' && message.tabId === tabId) {
     startDebugging()
   }
 })
@@ -217,15 +217,17 @@ function updateRules(customHeaders?: string) {
           addRules: [],
         }, () => {
           if (chrome.runtime.lastError) {
-            console.error("Error updating rules:", chrome.runtime.lastError)
-          } else {
-            console.log("Rules updated successfully.")
+            console.error('Error updating rules:', chrome.runtime.lastError)
+          }
+          else {
+            console.log('Rules updated successfully.')
           }
         })
 
         // set icon to disabled.
         chrome.action.setIcon({ path: 'icons/icon-disabled48.png' })
-      } else {
+      }
+      else {
         // Create headers array.
         const headers = [{
           name: 'example-header',
@@ -234,49 +236,54 @@ function updateRules(customHeaders?: string) {
         }]
         const requestHeaders = headers
           .filter(header => header.enabled)
-          .map(header => ({ "header": header.name.trim(), "operation": "set", "value": header.value }))
+          .map(header => ({ header: header.name.trim(), operation: 'set', value: header.value }))
 
         console.log(requestHeaders)
 
         // Clear existing rules and set new ones.
         chrome.declarativeNetRequest.updateDynamicRules({
           removeRuleIds: [1], // Ensure this matches the IDs you intend to remove
-          addRules: requestHeaders.length ? [{
-            "id": 1,
-            "priority": 1,
-            "action": {
-              "type": chrome.declarativeNetRequest.RuleActionType.MODIFY_HEADERS,
-              "requestHeaders": requestHeaders as any,
-            },
-            "condition": {
-              "urlFilter": "|http*://*/*", // Matches all HTTP and HTTPS URLs
-              "resourceTypes": [chrome.declarativeNetRequest.ResourceType.MAIN_FRAME, chrome.declarativeNetRequest.ResourceType.SUB_FRAME, chrome.declarativeNetRequest.ResourceType.XMLHTTPREQUEST],
-            },
-          }] : [],
+          addRules: requestHeaders.length
+            ? [{
+                id: 1,
+                priority: 1,
+                action: {
+                  type: chrome.declarativeNetRequest.RuleActionType.MODIFY_HEADERS,
+                  requestHeaders: requestHeaders as any,
+                },
+                condition: {
+                  urlFilter: '|http*://*/*', // Matches all HTTP and HTTPS URLs
+                  resourceTypes: [chrome.declarativeNetRequest.ResourceType.MAIN_FRAME, chrome.declarativeNetRequest.ResourceType.SUB_FRAME, chrome.declarativeNetRequest.ResourceType.XMLHTTPREQUEST],
+                },
+              }]
+            : [],
         }, () => {
           if (chrome.runtime.lastError) {
-            console.error("Error updating rules:" + chrome.runtime.lastError)
-          } else {
-            console.log("Rules updated successfully.")
+            console.error(`Error updating rules:${chrome.runtime.lastError}`)
+          }
+          else {
+            console.log('Rules updated successfully.')
           }
         })
       }
-    } catch (error) {
-      console.error("Error parsing custom headers:", error)
+    }
+    catch (error) {
+      console.error('Error parsing custom headers:', error)
     }
   })
 }
 
 function startDebugging() {
-  chrome.debugger.sendCommand({ tabId }, "Network.enable", null, () => {
+  chrome.debugger.sendCommand({ tabId }, 'Network.enable', null, () => {
     if (chrome.runtime.lastError) {
       console.error(chrome.runtime.lastError.message)
-    } else {
-      console.log("Network enabled")
+    }
+    else {
+      console.log('Network enabled')
     }
   })
 
-  chrome.tabs.get(tabId, tab => {
+  chrome.tabs.get(tabId, (tab) => {
     console.log(tab)
   })
 }

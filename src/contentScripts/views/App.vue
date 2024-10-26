@@ -15,8 +15,8 @@ function enableResizable(interactable: Interactable) {
       move(event) {
         let { x, y } = event.target.dataset
 
-        x = (parseFloat(x) || 0) + event.deltaRect.left
-        y = (parseFloat(y) || 0) + event.deltaRect.top
+        x = (Number.parseFloat(x) || 0) + event.deltaRect.left
+        y = (Number.parseFloat(y) || 0) + event.deltaRect.top
 
         Object.assign(event.target.style, {
           width: `${event.rect.width}px`,

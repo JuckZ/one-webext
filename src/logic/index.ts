@@ -68,11 +68,11 @@ export function reloadThisExtension() {
  */
 export function reloadExtensions() {
   // find all unpacked extensions and reload them
-  browser.management.getAll().then(async function (extensions) {
+  browser.management.getAll().then(async (extensions) => {
     for (const ext of extensions) {
-      if ((ext.installType === 'development') &&
-        (ext.enabled === true) &&
-        (ext.name !== 'Extensions Reloader')) {
+      if ((ext.installType === 'development')
+        && (ext.enabled === true)
+        && (ext.name !== 'Extensions Reloader')) {
         const extensionId = ext.id
         const extensionType = ext.type
         await browser.management.setEnabled(extensionId, false)
@@ -81,7 +81,7 @@ export function reloadExtensions() {
         if (extensionType === 'packaged_app' as Management.ExtensionType) {
           chrome.management.launchApp(extensionId)
         }
-        console.log(ext.name + ' reloaded')
+        console.log(`${ext.name} reloaded`)
       }
     }
   })

@@ -61,7 +61,6 @@ watch(clashSecret, async (newValue, oldValue) => {
 function initialClash(clashHost: string, clashPort: string, clashSecret: string) {
   console.error(clashHost, clashPort, clashSecret)
   loadClashConfig(clashHost, clashPort, clashSecret).then((res) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     proxies.value = (res.data as any).proxies
     Object.keys(proxies.value).forEach((key) => {
       const item = proxies.value[key]
@@ -79,7 +78,8 @@ function initialClash(clashHost: string, clashPort: string, clashSecret: string)
 onMounted(() => {
   if (clashSecret.value) {
     initialClash(clashHost.value, clashPort.value, clashSecret.value)
-  } else {
+  }
+  else {
     // TODO 提示用户配置clash
   }
 })

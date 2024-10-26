@@ -1,12 +1,12 @@
-chrome.devtools.panels.sources.createSidebarPane("Download", (pane) => {
-  pane.setPage("dist/devtools-page/index.html")
+chrome.devtools.panels.sources.createSidebarPane('Download', (pane) => {
+  pane.setPage('dist/devtools-page/index.html')
 })
 
 chrome.devtools.panels.create(
-  "AIO",
+  'AIO',
   '',
-  "dist/devtools-page/index.html",
-  function (panel) {
-    console.log("my panel created")
+  'dist/devtools-page/index.html',
+  (panel) => {
+    console.log('my panel created')
   },
 )

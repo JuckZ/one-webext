@@ -34,12 +34,14 @@ export async function getManifest() {
     side_panel: {
       default_path: './dist/sidebar/index.html',
     },
-    background: isFirefox ? {
-      service_worker: './dist/background/index.mjs',
-      type: 'module',
-    } : {
-      service_worker: './dist/background/index.mjs',
-    },
+    background: isFirefox
+      ? {
+          service_worker: './dist/background/index.mjs',
+          type: 'module',
+        }
+      : {
+          service_worker: './dist/background/index.mjs',
+        },
     devtools_page: './dist/devtools/index.html',
     icons: {
       16: './assets/icon-512.png',

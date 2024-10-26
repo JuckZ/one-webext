@@ -6,7 +6,7 @@ import { clashSecret } from '~/logic'
 const info = ref('')
 const errorMsg = ref()
 
-const test = () => {
+function test() {
   try {
     info.value = JSON.stringify(browser.webRequest.onHeadersReceived)
   }
@@ -16,7 +16,7 @@ const test = () => {
 }
 
 const isDownloading = ref(false)
-const downloadSourceCode = () => {
+function downloadSourceCode() {
   isDownloading.value = true
   chrome.devtools.inspectedWindow.getResources(
     (resources) => {
@@ -25,12 +25,12 @@ const downloadSourceCode = () => {
       const total = resources.length
       for (const resource of resources) {
         resource.getContent((content, encoding) => {
-          zip.file(resource.url, content, { base64: encoding == 'base64' })
+          zip.file(resource.url, content, { base64: encoding === 'base64' })
           c = c + 1
-          if (c == total) {
-            zip.generateAsync({ type: "blob" })
-              .then(function (zipContent) {
-                saveAs(zipContent, "sources.zip")
+          if (c === total) {
+            zip.generateAsync({ type: 'blob' })
+              .then((zipContent) => {
+                saveAs(zipContent, 'sources.zip')
               })
             isDownloading.value = false
           }
@@ -52,7 +52,9 @@ onMounted(() => {
     <SharedSubtitle />
 
     <div>{{ info }} </div>
-    <div text-red>{{ errorMsg }} </div>
+    <div text-red>
+      {{ errorMsg }}
+    </div>
 
     <input v-model="clashSecret" class="mt-2 border border-gray-400 rounded px-2 py-1">
 
