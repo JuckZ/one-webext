@@ -181,6 +181,10 @@ browser.commands.onCommand.addListener((command) => {
   }
 })
 
+chrome.debugger.onEvent.addListener((debuggee, message, params) => {
+  console.log(debuggee, message, params)
+})
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log(message)
   if (message.type === 'updateRules') {
@@ -274,16 +278,25 @@ function updateRules(customHeaders?: string) {
 }
 
 function startDebugging() {
-  chrome.debugger.sendCommand({ tabId }, 'Network.enable', null, () => {
+  chrome.debugger.attach({ tabId }, '1.2', () => {
     if (chrome.runtime.lastError) {
-      console.error(chrome.runtime.lastError.message)
+      console.error('附加调试器失败:', chrome.runtime.lastError.message)
+      return
     }
-    else {
-      console.log('Network enabled')
-    }
+
+    console.log('调试器已成功附加')
+
+    chrome.debugger.sendCommand({ tabId }, 'Network.enable', null, () => {
+      if (chrome.runtime.lastError) {
+        console.error('启用网络功能失败:', chrome.runtime.lastError.message)
+      }
+      else {
+        console.log('网络功能已启用')
+      }
+    })
   })
 
   chrome.tabs.get(tabId, (tab) => {
-    console.log(tab)
+    console.log('当前标签页信息:', tab)
   })
 }
