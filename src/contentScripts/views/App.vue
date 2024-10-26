@@ -2,10 +2,28 @@
 import type { Interactable } from '@interactjs/types'
 import { useToggle } from '@vueuse/core'
 import interact from 'interactjs'
+import { onMessage } from 'webext-bridge/content-script'
 
 import 'uno.css'
 
 const [show, toggle] = useToggle(false)
+
+const wsMessageList = ref<any[]>([])
+onMessage('on-bg-event', ({ data }) => {
+  if (data.message === 'Network.webSocketFrameReceived') {
+    try {
+      const parsedMsg = JSON.parse(data.params)
+      const { response } = parsedMsg
+      const payload = response.payloadData
+      wsMessageList.value.push(payload)
+    }
+    catch (error) {
+      console.error(error)
+      wsMessageList.value.push({})
+    }
+  }
+})
+
 const position = { x: 0, y: 0 }
 const draggingStatus = {}
 function enableResizable(interactable: Interactable) {
@@ -85,6 +103,13 @@ onMounted(() => {
         Vitesse WebExt
       </h1>
       <SharedSubtitle />
+      <div>
+        <div v-for="item in wsMessageList" :key="item">
+          <div class="max-w-200px overflow-auto">
+            {{ item }}
+          </div>
+        </div>
+      </div>
     </div>
     <img
       src="../../../extension/assets/icon.png"

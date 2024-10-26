@@ -38,6 +38,11 @@ export const sharedConfig: UserConfig = {
             ['=', 'browser'],
           ],
         },
+        {
+          '~/utils/logger': [
+            'log',
+          ],
+        },
       ],
       dts: r('src/auto-imports.d.ts'),
     }),

@@ -51,7 +51,8 @@
     "element-plus": "^2.8.3",
     "file-saver": "^2.0.5",
     "interactjs": "^1.10.19",
-    "jszip": "^3.10.1"
+    "jszip": "^3.10.1",
+    "loglevel": "^1.9.2"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^3.8.0",

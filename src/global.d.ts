@@ -1,4 +1,5 @@
 /// <reference types="chrome"/>
+/// <reference path="./loglevel.d.ts" />
 
 declare const __DEV__: boolean
 /** Extension name, defined in packageJson.name */

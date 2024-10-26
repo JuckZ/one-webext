@@ -9,11 +9,15 @@ import App from './views/App.vue'
   // browser.tabs.executeScript({
   //   file: 'content.js',
   // })
-  console.info('[vitesse-webext] Hello world from content script')
+  log.info(`Hello world from content script`)
 
   // communication example: send previous tab title from background page
   onMessage('tab-prev', ({ data }) => {
-    console.log(`[vitesse-webext] Navigate from page "${data.title}"`)
+    log.info(`Navigate from page "${data.title}"`)
+  })
+
+  onMessage('console-log', ({ data }) => {
+    log.info(`background: ${data.message}`)
   })
 
   // mount component to context window

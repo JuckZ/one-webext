@@ -22,6 +22,12 @@ if (import.meta.hot) {
 //     .catch((error: unknown) => console.error(error))
 // }
 
+let tabId = 0
+
+function consoleLog(message: string) {
+  sendMessage('console-log', { message }, { context: 'content-script', tabId })
+}
+
 browser.runtime.onInstalled.addListener((): void => {
   updateRules()
 
@@ -69,13 +75,13 @@ browser.tabs.onUpdated.addListener(async (tabId, info, tab) => {
     return
   const url = new URL(tab.url)
   if (url.origin === GOOGLE_ORIGIN) {
-    await browser.sidePanel.setOptions({
+    browser.sidePanel.setOptions({
       tabId,
       enabled: false,
     })
   }
   else {
-    await browser.sidePanel.setOptions({
+    browser.sidePanel.setOptions({
       tabId,
       path: './dist/sidebar/index.html',
       enabled: true,
@@ -88,6 +94,7 @@ browser.tabs.onUpdated.addListener(async (tabId, info, tab) => {
  */
 chrome.action.onClicked.addListener(() => {
   console.log('onClicked')
+  consoleLog('onClicked')
 })
 
 // communication example: send previous tab title from background page
@@ -111,8 +118,6 @@ browser.tabs.onActivated.addListener(async ({ tabId }) => {
   console.log('previous tab', tab)
   sendMessage('tab-prev', { title: tab.title }, { context: 'content-script', tabId })
 })
-
-let tabId = 0
 
 browser.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === 'openSidePanel') {
@@ -197,6 +202,7 @@ browser.commands.onCommand.addListener((command, tab) => {
 
 chrome.debugger.onEvent.addListener((debuggee, message, params) => {
   console.log(debuggee, message, params)
+  sendMessage('on-bg-event', { message, params: JSON.stringify(params) }, { context: 'content-script', tabId: debuggee.tabId! })
 })
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -295,6 +301,7 @@ function startDebugging() {
   chrome.debugger.attach({ tabId }, '1.2', () => {
     if (chrome.runtime.lastError) {
       console.error('附加调试器失败:', chrome.runtime.lastError.message)
+      consoleLog(`附加调试器失败:${chrome.runtime.lastError.message}`)
       return
     }
 
@@ -303,14 +310,17 @@ function startDebugging() {
     chrome.debugger.sendCommand({ tabId }, 'Network.enable', null, () => {
       if (chrome.runtime.lastError) {
         console.error('启用网络功能失败:', chrome.runtime.lastError.message)
+        consoleLog(`启用网络功能失败:${chrome.runtime.lastError.message}`)
       }
       else {
         console.log('网络功能已启用')
+        consoleLog('网络功能已启用')
       }
     })
   })
 
   chrome.tabs.get(tabId, (tab) => {
     console.log('当前标签页信息:', tab)
+    consoleLog(`当前标签页信息:${JSON.stringify(tab)}`)
   })
 }

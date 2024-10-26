@@ -1,6 +1,6 @@
 import type { Manifest } from 'webextension-polyfill'
-import type PkgType from '../package.json'
 import fs from 'fs-extra'
+import type PkgType from '../package.json'
 import { isDev, isFirefox, port, r } from '../scripts/utils'
 
 export async function getManifest() {
@@ -155,8 +155,8 @@ export async function getManifest() {
         js: [
           'dist/contentScripts/index.global.js',
         ],
-        run_at: 'document_start', // Defaults to "document_idle"
-        all_frames: true,
+        run_at: 'document_idle',
+        all_frames: false,
       },
     ],
     web_accessible_resources: [
