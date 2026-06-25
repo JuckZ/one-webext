@@ -2,23 +2,30 @@
   "compilerOptions": {
     "baseUrl": ".",
     "module": "ESNext",
-    "target": "es2016",
+    "target": "ES2022",
     "lib": [
       "DOM",
-      "ESNext"
+      "DOM.Iterable",
+      "ES2023"
     ],
     "strict": true,
     "esModuleInterop": true,
-    "incremental": false,
+    "incremental": true,
+    "tsBuildInfoFile": "node_modules/.cache/tsconfig.tsbuildinfo",
     "skipLibCheck": true,
     "jsx": "preserve",
-    "moduleResolution": "node",
+    "moduleResolution": "Bundler",
     "resolveJsonModule": true,
+    "isolatedModules": true,
+    "useDefineForClassFields": true,
+    "noImplicitOverride": true,
     "noUnusedLocals": true,
     "forceConsistentCasingInFileNames": true,
     "types": [
       "vite/client",
-      "element-plus/global"
+      "vitest/globals",
+      "element-plus/global",
+      "webextension-polyfill"
     ],
     "paths": {
       "~/*": [
@@ -28,6 +35,7 @@
   },
   "exclude": [
     "dist",
+    "extension",
     "node_modules"
   ]
 }
