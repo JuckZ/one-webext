@@ -3,6 +3,9 @@ import { onMessage } from 'webext-bridge/content-script'
 import { setupApp } from '~/logic/common-setup'
 import App from './views/App.vue'
 
+/**
+ * Mounts the content script application and registers its message handlers.
+ */
 function mountContentScript() {
   if (document.getElementById(__NAME__))
     return
