@@ -1,10 +1,11 @@
 import { createApp } from 'vue'
 import { onMessage } from 'webext-bridge/content-script'
 import { setupApp } from '~/logic/common-setup'
+import { claimContentScriptMount } from './mount-sentinel'
 import App from './views/App.vue'
 
 function mountContentScript() {
-  if (document.getElementById(__NAME__))
+  if (!claimContentScriptMount())
     return
 
   log.info('Hello world from content script')

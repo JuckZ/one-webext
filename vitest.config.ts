@@ -7,7 +7,7 @@ import IconsResolver from 'unplugin-icons/resolver'
 import Icons from 'unplugin-icons/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import Components from 'unplugin-vue-components/vite'
-import { defineConfig } from 'vitest/config'
+import { coverageConfigDefaults, defineConfig } from 'vitest/config'
 import packageJson from './package.json'
 import { isDev, r } from './scripts/utils'
 
@@ -72,6 +72,7 @@ export default defineConfig({
       reporter: ['text', 'json-summary', 'html'],
       reportsDirectory: '../coverage',
       exclude: [
+        ...coverageConfigDefaults.exclude,
         '**/main.ts',
         '**/*.d.ts',
         'auto-imports.d.ts',
