@@ -303,7 +303,7 @@ function startDebugging() {
 
     console.log('调试器已成功附加')
 
-    chrome.debugger.sendCommand({ tabId }, 'Network.enable', null, () => {
+    chrome.debugger.sendCommand({ tabId }, 'Network.enable', undefined, () => {
       if (chrome.runtime.lastError) {
         console.error('启用网络功能失败:', chrome.runtime.lastError.message)
         consoleLog(`启用网络功能失败:${chrome.runtime.lastError.message}`)

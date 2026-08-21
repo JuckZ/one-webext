@@ -37,10 +37,10 @@ export default {
     app.use(ElTooltip)
     app.use(ElIcon)
     app.use(ElSpace)
-    app.component(Edit.name, Edit)
-    app.component(Delete.name, Delete)
-    app.component(Remove.name, Remove)
-    app.component(Refresh.name, Refresh)
-    app.component(Minus.name, Minus)
+    app.component(Edit.name ?? 'Edit', Edit)
+    app.component(Delete.name ?? 'Delete', Delete)
+    app.component(Remove.name ?? 'Remove', Remove)
+    app.component(Refresh.name ?? 'Refresh', Refresh)
+    app.component(Minus.name ?? 'Minus', Minus)
   },
 }

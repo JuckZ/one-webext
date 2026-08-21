@@ -4,77 +4,99 @@ on:
   push:
     branches:
       - main
+      - deploy
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  deploy:
-    runs-on: ubuntu-20.04
+  build:
+    name: Build release artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/checkout@v4
         with:
-          node-version: 18.15.x
+          persist-credentials: false
 
-      - uses: pnpm/action-setup@v2
-        name: Install pnpm
-        id: pnpm-install
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
         with:
           run_install: false
 
-      - name: Get pnpm store directory
-        id: pnpm-cache
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-
-      - uses: actions/cache@v3
-        name: Setup pnpm cache
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
+          node-version: 22.x
+          cache: pnpm
 
-      - name: Install
-        run: pnpm i
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: Test
-        run: pnpm run test
+      - name: Typecheck
+        run: pnpm run typecheck
 
-      - name: Build
-        id: build
-        if: ${{ github.ref == 'refs/heads/main' }}
-        run: |
-          pnpm run build
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Unit tests
+        run: pnpm run test:coverage
+
+      - name: Build extension
+        run: pnpm run build
+
+      - name: Package extension
+        run: pnpm run pack:zip
+
+      - name: Upload extension artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-zip
+          path: extension.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish extension stores
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.ref == 'refs/heads/deploy'
+    steps:
+      - name: Download extension artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: extension-zip
 
       - name: Publish to Chrome Web Store
-        uses: wdzeng/chrome-extension@v1
-        if: ${{ github.ref == 'refs/heads/deploy' }}
+        uses: wdzeng/chrome-extension@37f4f9cdc664959bafef36b1f4da03dec5141620 # v2
         with:
-          extension-id: your-extension-id
-          zip-path: your-extension.zip
+          extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
+          zip-path: extension.zip
+          publisher-id: ${{ secrets.CHROME_PUBLISHER_ID }}
           client-id: ${{ secrets.CHROME_CLIENT_ID }}
           client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
           refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
 
       - name: Publish to Edge Add-ons
-        uses: wdzeng/edge-addon
-        if: ${{ github.ref == 'refs/heads/deploy' }}
+        uses: wdzeng/edge-addon@e307af4adb6d4e1c12387dc7d6bd545dcd075909 # v1
         with:
-          product-id: your-addon-product-id
-          zip-path: your-addon.zip
+          product-id: ${{ secrets.EDGE_PRODUCT_ID }}
+          zip-path: extension.zip
+          api-key: ${{ secrets.EDGE_API_KEY }}
           client-id: ${{ secrets.EDGE_CLIENT_ID }}
-          client-secret: ${{ secrets.EDGE_CLIENT_SECRET }}
-          access-token-url: ${{ secrets.EDGE_ACCESS_TOKEN_URL }}
 
       - name: Publish to Firefox Add-ons
-        if: ${{ github.ref == 'refs/heads/deploy' }}
-        uses: wdzeng/firefox-addon
+        uses: wdzeng/firefox-addon@3184ee491b500e080885e046051366a4228c6e5d # v1
         with:
-          addon-guid: your-addon's-guid
-          xpi-path: your-addon.zip
+          addon-guid: ${{ secrets.FIREFOX_ADDON_GUID }}
+          xpi-path: extension.zip
           self-hosted: false
           jwt-issuer: ${{ secrets.FIREFOX_JWT_ISSUER }}
           jwt-secret: ${{ secrets.FIREFOX_JWT_SECRET }}
