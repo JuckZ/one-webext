@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -22,6 +22,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -35,7 +37,13 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Lint
+        run: pnpm run lint
 
       - name: Unit tests
         run: pnpm run test:coverage
@@ -67,7 +75,7 @@ jobs:
           name: extension-zip
 
       - name: Publish to Chrome Web Store
-        uses: wdzeng/chrome-extension@v2
+        uses: wdzeng/chrome-extension@37f4f9cdc664959bafef36b1f4da03dec5141620 # v2
         with:
           extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
           zip-path: extension.zip
@@ -77,7 +85,7 @@ jobs:
           refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
 
       - name: Publish to Edge Add-ons
-        uses: wdzeng/edge-addon@v1
+        uses: wdzeng/edge-addon@e307af4adb6d4e1c12387dc7d6bd545dcd075909 # v1
         with:
           product-id: ${{ secrets.EDGE_PRODUCT_ID }}
           zip-path: extension.zip
@@ -85,7 +93,7 @@ jobs:
           client-id: ${{ secrets.EDGE_CLIENT_ID }}
 
       - name: Publish to Firefox Add-ons
-        uses: wdzeng/firefox-addon@v1
+        uses: wdzeng/firefox-addon@3184ee491b500e080885e046051366a4228c6e5d # v1
         with:
           addon-guid: ${{ secrets.FIREFOX_ADDON_GUID }}
           xpi-path: extension.zip
