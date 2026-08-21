@@ -4,6 +4,9 @@ import { setupApp } from '~/logic/common-setup'
 import { mountContentScriptOnce } from './mount-sentinel'
 import App from './views/App.vue'
 
+/**
+ * Mounts the content script application and registers its message handlers.
+ */
 function mountContentScript() {
   mountContentScriptOnce((registerCleanup) => {
     log.info('Hello world from content script')

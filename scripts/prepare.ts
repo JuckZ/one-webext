@@ -5,7 +5,9 @@ import fs from 'fs-extra'
 import { isDev, log, port, r } from './utils'
 
 /**
- * Stub index.html to use Vite in development
+ * Generates development HTML stubs for each extension view.
+ *
+ * Each stub references the Vite development server and displays a fallback message until the server starts.
  */
 async function stubIndexHtml() {
   const views = [
@@ -29,6 +31,9 @@ async function stubIndexHtml() {
   }
 }
 
+/**
+ * Generates the project manifest.
+ */
 function writeManifest() {
   execSync('pnpm exec esno ./scripts/manifest.ts', { stdio: 'inherit' })
 }

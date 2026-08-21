@@ -293,6 +293,9 @@ function updateRules(customHeaders?: string) {
   })
 }
 
+/**
+ * Attaches the debugger to the tracked tab and enables network inspection.
+ */
 function startDebugging() {
   chrome.debugger.attach({ tabId }, '1.2', () => {
     if (chrome.runtime.lastError) {
