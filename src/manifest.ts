@@ -3,6 +3,11 @@ import type PkgType from '../package.json'
 import fs from 'fs-extra'
 import { isDev, isFirefox, port, r } from '../scripts/utils'
 
+/**
+ * Generates the browser extension's Manifest V3 configuration from package metadata and build settings.
+ *
+ * @returns The generated browser extension manifest
+ */
 export async function getManifest() {
   const pkg = await fs.readJSON(r('package.json')) as typeof PkgType
   const ModifierKey = 'Alt+Shift'
