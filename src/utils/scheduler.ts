@@ -28,8 +28,8 @@ class Scheduler {
       }
     }
     else {
-      let resolve: (value: unknown) => void
-      let reject: (reason?: unknown) => void
+      let resolve: (_value: unknown) => void
+      let reject: (_reason?: unknown) => void
       const ret = new Promise((res, rej) => {
         resolve = res
         reject = rej

@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite'
 import packageJson from './package.json'
-import { isDev, r } from './scripts/utils'
+import { isDev, isFirefox, r } from './scripts/utils'
 import { sharedConfig } from './vite.config'
 
 // bundling the content script using Vite
@@ -8,6 +8,7 @@ export default defineConfig({
   ...sharedConfig,
   define: {
     '__DEV__': isDev,
+    '__FIREFOX__': isFirefox,
     '__NAME__': JSON.stringify(packageJson.name),
     // https://github.com/vitejs/vite/issues/9320
     // https://github.com/vitejs/vite/issues/9186

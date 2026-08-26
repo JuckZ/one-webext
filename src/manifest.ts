@@ -10,7 +10,7 @@ import { isDev, isFirefox, port, r } from '../scripts/utils'
  */
 export async function getManifest() {
   const pkg = await fs.readJSON(r('package.json')) as typeof PkgType
-  const ModifierKey = 'Alt+Shift'
+  const repolensOrigin = 'http://127.0.0.1:4747'
 
   // update this file to update this manifest.json
   // can also be conditional based on your need
@@ -22,140 +22,40 @@ export async function getManifest() {
     description: pkg.description,
     author: pkg.author.name,
     homepage_url: pkg.homepage,
-    declarative_net_request: {
-      rule_resources: [],
-    },
     action: {
-      default_icon: './assets/icon-512.png',
-      default_popup: './dist/popup/index.html',
-    },
-    options_ui: {
-      page: './dist/options/index.html',
-      open_in_tab: true,
-    },
-    chrome_url_overrides: {
-      newtab: './dist/home/index.html',
+      default_icon: './assets/icon-128.png',
     },
     side_panel: {
       default_path: './dist/sidebar/index.html',
     },
     background: isFirefox
       ? {
-          service_worker: './dist/background/index.mjs',
+          scripts: ['./dist/background/index.mjs'],
           type: 'module',
         }
       : {
           service_worker: './dist/background/index.mjs',
+          type: 'module',
         },
-    devtools_page: './dist/devtools/index.html',
     icons: {
-      16: './assets/icon-512.png',
-      48: './assets/icon-512.png',
-      128: './assets/icon-512.png',
+      16: './assets/icon-16.png',
+      48: './assets/icon-48.png',
+      128: './assets/icon-128.png',
     },
     permissions: [
       'activeTab',
-      'alarms',
-      'background',
-      'bookmarks',
-      'browsingData',
-      // 'certificateProvider',
-      'clipboardRead',
-      'clipboardWrite',
-      'contentSettings',
-      'contextMenus',
-      'cookies',
-      'debugger',
-      'declarativeContent',
-      'webRequest',
-      'declarativeNetRequest',
-      'declarativeNetRequestWithHostAccess',
-      'declarativeNetRequestFeedback',
-      'desktopCapture',
-      // 'documentScan',
-      'downloads',
-      'downloads.open',
-      'downloads.ui',
-      // 'enterprise.deviceAttributes',
-      // 'enterprise.hardwarePlatform',
-      // 'enterprise.networkingAttributes',
-      // 'enterprise.platformKeys',
-      // 'experimental',
-      // 'fileBrowserHandler',
-      // 'fileSystemProvider',
-      'fontSettings',
-      'gcm',
-      'geolocation',
-      'history',
-      'identity',
-      'idle',
-      // 'loginState',
-      'management',
-      'nativeMessaging',
-      'notifications',
-      'offscreen',
-      'pageCapture',
-      // 'platformKeys',
-      'power',
-      'printerProvider',
-      // 'printing',
-      // 'printingMetrics',
-      'privacy',
-      // 'processes',
-      'proxy',
-      'scripting',
-      'search',
-      'sessions',
-      'sidePanel',
       'storage',
-      'system.cpu',
-      'system.display',
-      'system.memory',
-      'system.storage',
-      'tabCapture',
-      'tabGroups',
       'tabs',
-      'topSites',
-      'tts',
-      'ttsEngine',
-      'unlimitedStorage',
-      // 'vpnProvider',
-      // 'wallpaper',
-      'webAuthenticationProxy',
-      'webNavigation',
-
+      ...(isFirefox ? [] : ['sidePanel']),
     ],
-    commands: {
-      openDevtools: {
-        suggested_key: {
-          default: `${ModifierKey}+F`,
-        },
-        description: '打开插件审查界面',
-      },
-      switchToLeftTab: {
-        suggested_key: {
-          default: `${ModifierKey}+E`,
-        },
-        description: 'Switch to the left tab',
-      },
-      reloadThisExtension: {
-        suggested_key: {
-          default: `${ModifierKey}+D`,
-        },
-        description: 'Reload this extensions',
-      },
-      wsInspector: {
-        suggested_key: {
-          default: `${ModifierKey}+W`,
-        },
-        description: 'Open WebSocket Inspector',
-      },
-    },
-    host_permissions: ['*://*/*'],
+    host_permissions: [
+      'https://github.com/*',
+      `${repolensOrigin}/*`,
+    ],
     content_scripts: [
       {
         matches: [
-          '<all_urls>',
+          'https://github.com/*',
         ],
         js: [
           'dist/contentScripts/index.global.js',
@@ -167,21 +67,30 @@ export async function getManifest() {
     web_accessible_resources: [
       {
         resources: ['dist/contentScripts/style.css', 'dist/assets/*'],
-        matches: ['<all_urls>'],
+        matches: ['https://github.com/*'],
       },
     ],
     content_security_policy: {
       extension_pages: isDev
         // this is required on dev for Vite script to load
-        ? `script-src \'self\' http://localhost:${port}; object-src \'self\'`
-        : 'script-src \'self\'; object-src \'self\'',
+        ? `script-src 'self' http://localhost:${port}; object-src 'self'; frame-src ${repolensOrigin}; connect-src ${repolensOrigin} http://localhost:${port}`
+        : `script-src 'self'; object-src 'self'; frame-src ${repolensOrigin}; connect-src ${repolensOrigin}`,
+    },
+    browser_specific_settings: {
+      gecko: {
+        id: 'repolens@one-webext.local',
+        strict_min_version: '121.0',
+      },
     },
   }
 
   // add sidepanel
   if (isFirefox) {
+    delete manifest.side_panel
     manifest.sidebar_action = {
       default_panel: 'dist/sidebar/index.html',
+      default_title: 'RepoLens',
+      default_icon: './assets/icon-128.png',
     }
   }
   else {
@@ -189,16 +98,6 @@ export async function getManifest() {
     (manifest as any).side_panel = {
       default_path: 'dist/sidebar/index.html',
     }
-  }
-
-  // FIXME: not work in MV3
-
-  if (isDev && false) {
-    // for content script, as browsers will cache them for each reload,
-    // we use a background script to always inject the latest version
-    // see src/background/contentScriptHMR.ts
-    delete manifest.content_scripts
-    manifest.permissions?.push('webNavigation')
   }
 
   return manifest

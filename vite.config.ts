@@ -3,7 +3,6 @@
 import type { UserConfig } from 'vite'
 import { dirname, relative } from 'node:path'
 import Vue from '@vitejs/plugin-vue'
-import UnoCSS from 'unocss/vite'
 import AutoImport from 'unplugin-auto-import/vite'
 import ElementPlus from 'unplugin-element-plus'
 import IconsResolver from 'unplugin-icons/resolver'
@@ -12,7 +11,7 @@ import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import Components from 'unplugin-vue-components/vite'
 import { defineConfig } from 'vite'
 import packageJson from './package.json'
-import { isDev, port, r } from './scripts/utils'
+import { isDev, isFirefox, port, r } from './scripts/utils'
 
 export const sharedConfig: UserConfig = {
   root: r('src'),
@@ -23,6 +22,7 @@ export const sharedConfig: UserConfig = {
   },
   define: {
     __DEV__: isDev,
+    __FIREFOX__: isFirefox,
     __NAME__: JSON.stringify(packageJson.name),
   },
   plugins: [
@@ -66,9 +66,6 @@ export const sharedConfig: UserConfig = {
 
     // https://github.com/antfu/unplugin-icons
     Icons(),
-
-    // https://github.com/unocss/unocss
-    UnoCSS(),
 
     // rewrite assets to use relative path
     {
@@ -123,10 +120,7 @@ export default defineConfig(({ command }) => ({
     },
     rollupOptions: {
       input: {
-        home: r('src/home/index.html'),
         sidebar: r('src/sidebar/index.html'),
-        options: r('src/options/index.html'),
-        popup: r('src/popup/index.html'),
       },
     },
   },

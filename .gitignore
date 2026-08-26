@@ -8,10 +8,13 @@
 *.pem
 *.xpi
 *.zip
+artifacts/
 dist
 dist-ssr
 extension/manifest.json
 node_modules
+playwright-report/
 src/components.d.ts
+test-results/
 .eslintcache
 refrences/**

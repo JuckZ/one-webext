@@ -1,5 +1,23 @@
 # Browser Extension Architecture Roadmap
 
+## RepoLens implementation
+
+The active product path is intentionally narrow:
+
+1. `src/contentScripts/index.ts` observes GitHub History API, Turbo and PJAX navigation with a
+   short debounce. It emits a normalized repository context and ignores an identical signature.
+2. `src/background/main.ts` verifies that messages come from a GitHub tab, maintains context per
+   tab and sends the current active-tab context to the panel. A URL-only `tabs.onUpdated` fallback
+   covers Firefox MV3 event-page suspension during full navigation.
+3. `src/sidebar/main.ts` owns the remote iframe and performs the versioned, nonce-protected
+   `postMessage` handshake. The iframe is sandboxed and cannot use extension APIs.
+4. RepoLens `/embed` shows a cached summary first. Deep analysis happens after dwell time or when
+   the user presses the button.
+
+Chromium artifacts use `side_panel`; Firefox artifacts remove that key and add `sidebar_action`.
+The build defines `__FIREFOX__` so Chromium-only APIs are removed from the Firefox bundle rather
+than merely guarded at runtime. Firefox packages must pass `web-ext lint --warnings-as-errors`.
+
 ## Target stack
 
 - **Manifest V3 first**, with Firefox compatibility isolated behind manifest generation branches.

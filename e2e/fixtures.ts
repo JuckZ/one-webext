@@ -1,22 +1,22 @@
 import type { Manifest } from 'webextension-polyfill'
 import path from 'node:path'
-import { setTimeout as sleep } from 'node:timers/promises'
+import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 import { test as base, type BrowserContext, chromium } from '@playwright/test'
 import fs from 'fs-extra'
 
-export { name } from '../package.json'
+const currentDir = path.dirname(fileURLToPath(import.meta.url))
 
-export const extensionPath = path.join(__dirname, '../extension')
+export const extensionPath = process.env.EXTENSION_PATH || path.join(currentDir, '../artifacts/chromium')
 
 export const test = base.extend<{
   context: BrowserContext
   extensionId: string
 }>({
   context: async ({ headless }, use) => {
-    // workaround for the Vite server has started but contentScript is not yet.
-    await sleep(1000)
     const context = await chromium.launchPersistentContext('', {
       headless,
+      ...(process.env.PW_BROWSER_CHANNEL ? { channel: process.env.PW_BROWSER_CHANNEL as 'chrome' | 'msedge' } : {}),
       args: [
         ...(headless ? ['--headless=new'] : []),
         `--disable-extensions-except=${extensionPath}`,

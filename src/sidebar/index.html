@@ -1,12 +1,30 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <base target="_blank" />
-    <title>Sidebar</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>RepoLens Side Panel</title>
   </head>
-  <body style="min-width: 100px">
-    <div id="app"></div>
+  <body>
+    <main class="sidebar-shell" data-testid="repolens-side-panel">
+      <header class="panel-header">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">R</span>
+          <div>
+            <strong>RepoLens</strong>
+            <span data-testid="current-repo">等待 GitHub 仓库</span>
+          </div>
+        </div>
+        <span class="bridge-state" data-ready="false" role="status" aria-live="polite">正在建立安全桥接…</span>
+      </header>
+      <iframe
+        data-testid="repolens-embed"
+        title="RepoLens 仓库分析"
+        sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+        referrerpolicy="no-referrer"
+      ></iframe>
+    </main>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>
