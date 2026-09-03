@@ -1,10 +1,11 @@
 import type { BrowserContext, FrameLocator, Page } from '@playwright/test'
 import fs from 'node:fs'
+import path from 'node:path'
 import process from 'node:process'
 import { expect, extensionPath, test } from './fixtures'
 
 const browserLabel = process.env.PW_BROWSER_CHANNEL === 'msedge' ? 'edge' : (process.env.PW_BROWSER_CHANNEL === 'chrome' ? 'chrome' : 'chromium')
-const reportScreenshot = `/home/juck/Projects/repolens-starter/data/oneweb-${browserLabel}-side-panel.png`
+const reportScreenshot = path.resolve(process.cwd(), 'test-results', `oneweb-${browserLabel}-side-panel.png`)
 
 interface RpcFixtureBrowserApi {
   beginHold: (_marker?: string) => Promise<string>
