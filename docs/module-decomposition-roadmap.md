@@ -1980,7 +1980,7 @@ The existing Git history and immutable Phase 7A audit remain the historical reco
 `448bf86d031881b3df687a6bcda416acd39307fa`. The local checkout remains clean and no tag, branch,
 notice, importer or compatibility change was created.
 
-### Phase 8D — Fresh clone/build/install and `0.1.0` release-candidate acceptance — Active
+### Phase 8D — Fresh clone/build/install and `0.1.0` release-candidate acceptance — Complete (2026-09-03)
 
 From fresh temporary clones with frozen dependencies, reproduce the OneWeb and RepoLens gates,
 build Chromium and Firefox artifacts, install each production artifact in a clean browser profile,
@@ -1989,3 +1989,12 @@ and verify the canonical identity plus core module isolation. Only this phase ma
 
 The exact clean-clone, packaging and evidence procedure is tracked in
 [`phase-8d-release-candidate.md`](checkpoints/phase-8d-release-candidate.md).
+
+**Phase 8D status:** Commit `b5055864de36c058203ffc16111a209a4a7b06c9` passed frozen install,
+typecheck, full lint, **558/558 unit tests**, the reproducible **20-file SDK** gate, production builds,
+the **28-file identity/runtime scan** for each browser, **24/24 Chromium E2E**, Firefox manifest lint
+with **0 errors / 0 notices / 0 warnings**, and the **1/1 real Firefox gate** from a new clone and new
+browser profiles. The final 12-file Chromium ZIP and Firefox XPI passed content and security review;
+their exact SHA-256 values are recorded in the checkpoint. RepoLens passes **34/34** plus its offline
+**14-file vendor** gate while the accepted SDK drift remains explicit. Phase 8 is complete. Formal
+release, GitHub Release creation and browser-store upload require separate authorization.

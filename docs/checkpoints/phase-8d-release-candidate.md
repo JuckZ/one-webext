@@ -45,6 +45,41 @@ vendor.
 
 ## Status
 
-**Active.** Completion requires the fresh clone, both clean-profile browser gates, packaged artifact
-inspection and exact evidence. After acceptance, an RC Git tag may identify the tested commit, but no
-GitHub Release, store upload or formal publication is authorized by this phase.
+**Complete (2026-09-03).** The accepted source is commit
+`b5055864de36c058203ffc16111a209a4a7b06c9` on `codex/0.1.0-rc`. A first clean-clone packaging run
+correctly rejected an empty Chromium ZIP produced by the old non-recursive `extension/*` command.
+Commit `b505586` replaced that command with the same reviewed `web-ext build` boundary used for the
+Firefox package. The entire procedure was then restarted from a new clone of that commit; evidence
+from the failed package was not reused.
+
+The final clean clone passed:
+
+- frozen installation with 1,073 packages and no `file:`, `link:`, sibling-checkout or absolute-path
+  dependency;
+- typecheck, full lint, **558/558 unit tests** and the reproducible **20-file private SDK** gate;
+- Chromium production build and the **28-file identity/runtime scan**, followed by **24/24 Chromium
+  E2E** scenarios in a newly created Playwright profile;
+- Firefox production build and the same **28-file identity/runtime scan**, strict manifest validation
+  with **0 errors / 0 notices / 0 warnings**, and the **1/1 real Firefox temporary-install gate** in a
+  newly created profile;
+- RepoLens **34/34 tests** and its offline **14-file vendor** gate. The accepted
+  `typedCapabilities.storage.module` drift was reproduced and remains intentionally unsynchronized;
+- source-clean `git status`, both writable repositories' `git diff --check`, and an unchanged clean
+  `one-tampermonkey` checkout at the archived commit.
+
+## Accepted artifacts
+
+- Chromium: `one-web-0.1.0-chromium.zip`, 19 archive entries / 12 files, SHA-256
+  `0f5e3b0f30166e3e792646f2a13cb8892629e9820b5134a23cc5ad034208fa60`.
+- Firefox: `one-web-0.1.0-firefox.xpi`, 19 archive entries / 12 files, SHA-256
+  `28500594902fde401f824ae0838e390988243fcf3c83cad515d6a8738d14b1a3`.
+
+Both archives passed integrity tests and contain only the manifest, five packaged icons and six
+production HTML/CSS/JavaScript files. Chromium exposes `side_panel`; Firefox exposes
+`sidebar_action`; both identify `OneWeb` `0.1.0`, use `https://github.com/JuckZ/one-web`, and retain
+Firefox ID `one-web@juckz.local`. The file lists and extracted text contain no source maps, tests,
+package metadata, local dependency, user-home path, secret marker, Tampermonkey/GM/userscript code,
+external CDN, remote `eval`, hard-coded private-site URL or stale product identity.
+
+The RC may be identified as `v0.1.0-rc.1`. This checkpoint creates no GitHub Release, npm package,
+browser-store upload or formal `0.1.0` publication; each remains a separately authorized action.

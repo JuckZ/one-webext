@@ -1,6 +1,6 @@
 # ADR-0021: Sequence pre-release convergence before remote administration
 
-- **Status:** Accepted (Phase 8A Complete)
+- **Status:** Accepted (Phase 8 Complete)
 - **Date:** 2026-09-03
 - **Scope:** Protected working-tree checkpoint, repository identity ordering and `0.1.0` readiness
 
@@ -85,3 +85,18 @@ Accepted on 2026-09-03 after explicit user authorization. `JuckZ/one-tampermonke
 directly at the audited commit. Its local checkout remains clean and no tag, notice branch, migration
 document, importer, compatibility release or source change was added. Phase 8D is the only active
 stage.
+
+## Phase 8D release-candidate supplement
+
+Accepted on 2026-09-03 after explicit user authorization. The first clean-clone attempt exposed an
+empty Chromium ZIP caused by a non-recursive `extension/*` packaging command. That artifact was
+rejected, the command was replaced with the reviewed `web-ext build` path, and all acceptance work
+was restarted from a new clone of commit `b5055864de36c058203ffc16111a209a4a7b06c9`.
+
+The new clone passed frozen install, typecheck, lint, **558/558 unit tests**, the reproducible
+**20-file SDK** gate, both production builds and identity scans, **24/24 Chromium E2E**, Firefox
+manifest validation with **0 errors / 0 notices / 0 warnings**, and the **1/1 real Firefox gate**.
+Both final browser archives passed integrity, identity, dependency, absolute-path, development-file,
+secret-marker and rejected-runtime inspection. RepoLens retained its reviewed offline vendor and
+reproduced its accepted drift. Phase 8 is complete; an RC tag may identify the accepted commit, but
+no GitHub Release, store submission or formal release is authorized by this decision.

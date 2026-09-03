@@ -1458,8 +1458,11 @@ remains read-only.
 Repository identity changes are deliberately ordered after that checkpoint. Phase 8B renamed the
 real GitHub repository to `JuckZ/one-web` before updating the local checkout, remote, homepage,
 packaged link, Firefox ID and current path hints. Phase 8C archives the historical prototype directly
-without a tag or migration surface. Phase 8D proves a `0.1.0` release candidate from clean clones and
-clean browser profiles.
+without a tag or migration surface. Phase 8D completed the `0.1.0` release-candidate proof from a
+fresh clone and clean Chromium/Firefox profiles, including archive inspection and the correction of
+a non-recursive Chromium packaging command. The accepted source and artifact hashes are recorded in
+[`phase-8d-release-candidate.md`](checkpoints/phase-8d-release-candidate.md); publication remains a
+separately authorized action.
 
 ### Future — Distribution ecosystem
 
