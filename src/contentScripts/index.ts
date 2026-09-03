@@ -1,15 +1,16 @@
-import { createGitHubRouteObserver } from '~/repolens/github-route-observer'
-import type { GitHubContextMessage } from '~/repolens/protocol'
+import type { ContextProviderUpdateMessage } from '~/modules/context-protocol'
+import { createGitHubRepositoryObserver } from '~/modules/providers/github-repository-observer'
 
 if (window.top === window) {
-  createGitHubRouteObserver({
+  createGitHubRepositoryObserver({
     window,
     emit: async (context) => {
-      const message: GitHubContextMessage = {
-        channel: 'repolens.extension',
+      const message: ContextProviderUpdateMessage = {
+        channel: 'oneweb.context',
         version: 1,
-        type: 'GITHUB_CONTEXT',
-        context,
+        type: 'CONTEXT_PROVIDER_UPDATE',
+        contextId: 'github.repository',
+        value: context,
       }
       await browser.runtime.sendMessage(message)
     },

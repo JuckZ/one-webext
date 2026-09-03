@@ -1,16 +1,24 @@
-# Browser Extension Architecture Roadmap
+# OneWeb Architecture Roadmap
 
-## RepoLens implementation
+The long-term product architecture treats RepoLens as the first remote module rather than a
+hard-coded product identity. The module model, trust boundaries, manifest format and evolution
+plan are specified in [`module-platform-architecture.md`](module-platform-architecture.md).
+
+## Current RepoLens implementation
 
 The active product path is intentionally narrow:
 
-1. `src/contentScripts/index.ts` observes GitHub History API, Turbo and PJAX navigation with a
-   short debounce. It emits a normalized repository context and ignores an identical signature.
-2. `src/background/main.ts` verifies that messages come from a GitHub tab, maintains context per
-   tab and sends the current active-tab context to the panel. A URL-only `tabs.onUpdated` fallback
-   covers Firefox MV3 event-page suspension during full navigation.
-3. `src/sidebar/main.ts` owns the remote iframe and performs the versioned, nonce-protected
-   `postMessage` handshake. The iframe is sandboxed and cannot use extension APIs.
+1. `src/modules/providers/github-repository-observer.ts` observes GitHub History API, Turbo and
+   PJAX navigation with a short debounce. It emits a provider update or an explicit removal when a
+   SPA route stops being a repository.
+2. `src/background/main.ts` delegates source validation, normalization, per-tab state and dedupe to
+   `ContextBroker`, then sends a generic active-tab snapshot to the panel. A URL-only
+   `tabs.onUpdated` fallback covers Firefox MV3 event-page suspension during full navigation.
+3. `src/sidebar/main.ts` selects the seeded RepoLens record and delegates the remote iframe to
+   `ModuleFrameHost`. The host verifies the initial window message, transfers a nonce-protected
+   `MessageChannel`, and sends only the intersection of provider output, manifest
+   `context_fields`, and installed field grants. The iframe is sandboxed and cannot use extension
+   APIs.
 4. RepoLens `/embed` shows a cached summary first. Deep analysis happens after dwell time or when
    the user presses the button.
 
@@ -34,6 +42,11 @@ than merely guarded at runtime. Firefox packages must pass `web-ext lint --warni
 3. Keep content scripts idempotent so repeated injection cannot mount duplicated UI or listeners.
 4. Keep build configs DRY by sharing Vite defaults and using small entry-specific configs only for output shape.
 5. Run typecheck, lint, coverage, and build in CI before producing extension artifacts.
+
+Clash Control follows the same trust split. Phase 4A selected a packaged builtin connector through
+[`ADR-0001`](adr/0001-clash-control-packaged-builtin.md): the trusted background alone can attach a
+one-shot secret to fixed read-only localhost endpoints, while remote frames retain only the generic
+field-filtered context bridge.
 
 ## Upgrade backlog
 

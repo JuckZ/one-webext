@@ -4,26 +4,125 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
-    <title>RepoLens Side Panel</title>
+    <title>OneWeb · RepoLens</title>
   </head>
   <body>
-    <main class="sidebar-shell" data-testid="repolens-side-panel">
+    <main class="sidebar-shell" data-testid="oneweb-side-panel" data-view="module">
       <header class="panel-header">
         <div class="brand">
           <span class="brand-mark" aria-hidden="true">R</span>
           <div>
-            <strong>RepoLens</strong>
-            <span data-testid="current-repo">等待 GitHub 仓库</span>
+            <strong data-testid="module-name">OneWeb</strong>
+            <span data-testid="current-context">等待页面上下文</span>
           </div>
         </div>
-        <span class="bridge-state" data-ready="false" role="status" aria-live="polite">正在建立安全桥接…</span>
+        <div class="panel-actions">
+          <span class="bridge-state" data-ready="false" role="status" aria-live="polite">正在建立安全桥接…</span>
+          <button
+            class="panel-icon-button"
+            type="button"
+            data-testid="manage-modules"
+            aria-label="管理模块"
+            aria-controls="module-manager"
+            aria-expanded="false"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 5.5h16M4 12h16M4 18.5h16" />
+              <circle cx="8" cy="5.5" r="1.7" />
+              <circle cx="16" cy="12" r="1.7" />
+              <circle cx="10" cy="18.5" r="1.7" />
+            </svg>
+          </button>
+        </div>
       </header>
-      <iframe
-        data-testid="repolens-embed"
-        title="RepoLens 仓库分析"
-        sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-        referrerpolicy="no-referrer"
-      ></iframe>
+      <section class="module-surface" data-testid="module-surface">
+        <iframe
+          data-testid="oneweb-module-frame"
+          title="OneWeb module"
+          sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+          referrerpolicy="no-referrer"
+        ></iframe>
+        <div class="module-unavailable" data-testid="module-unavailable" hidden>
+          <span class="empty-mark" aria-hidden="true">O</span>
+          <h1 data-unavailable-title>模块不可用</h1>
+          <p data-unavailable-description>请在模块管理中重新启用或检查状态。</p>
+          <button type="button" data-open-module-manager>管理模块</button>
+        </div>
+      </section>
+      <section id="module-manager" class="module-manager" data-testid="module-manager" hidden>
+        <div class="manager-heading">
+          <button class="back-button" type="button" data-testid="close-module-manager" aria-label="返回当前模块">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7" /></svg>
+          </button>
+          <div class="manager-heading-copy">
+            <h1>模块管理</h1>
+            <p>查看来源与权限，按需启用或移除模块。</p>
+          </div>
+          <button class="add-module-button" type="button" data-testid="add-module">添加模块</button>
+        </div>
+        <p class="manager-status" data-testid="module-manager-status" role="status" aria-live="polite">
+          正在读取已安装模块…
+        </p>
+        <div class="module-list" data-module-list></div>
+        <div class="confirm-overlay" data-testid="remove-module-dialog" hidden>
+          <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="remove-module-title">
+            <span class="confirm-mark" aria-hidden="true">!</span>
+            <h2 id="remove-module-title">移除 <span data-remove-module-name></span>？</h2>
+            <p>模块记录与当前授权将从 OneWeb 中删除。远程服务中的数据不会被删除。</p>
+            <div class="confirm-actions">
+              <button type="button" class="secondary-button" data-cancel-remove>取消</button>
+              <button type="button" class="danger-button" data-confirm-remove>确认移除</button>
+            </div>
+          </section>
+        </div>
+        <div class="install-overlay" data-testid="install-module-dialog" hidden>
+          <section class="install-dialog" role="dialog" aria-modal="true" aria-labelledby="install-module-title">
+            <div class="install-dialog-heading">
+              <div>
+                <h2 id="install-module-title">添加网页模块</h2>
+                <p>从模块提供方的 HTTPS manifest 安装。</p>
+              </div>
+              <button class="install-close-button" type="button" data-close-install aria-label="关闭安装审查">×</button>
+            </div>
+            <div data-install-entry>
+              <label class="manifest-url-label" for="module-manifest-url">Manifest 地址</label>
+              <input
+                id="module-manifest-url"
+                class="manifest-url-input"
+                type="url"
+                inputmode="url"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="https://example.com/.well-known/oneweb-module.json"
+                data-manifest-url
+              />
+              <p class="install-hint">“读取并审查”会请求该地址所属 origin 的临时访问权限，不会安装或运行远程代码。</p>
+              <button class="primary-button install-prepare-button" type="button" data-prepare-install>
+                读取并审查
+              </button>
+            </div>
+            <div class="install-review" data-install-review hidden>
+              <div class="install-module-identity">
+                <span class="module-card-mark" data-install-mark aria-hidden="true">M</span>
+                <div>
+                  <h3 data-install-name>模块</h3>
+                  <p data-install-description></p>
+                </div>
+              </div>
+              <dl class="module-access-list install-access-list" data-install-access></dl>
+              <div class="install-grants" data-install-grants></div>
+              <p class="install-security-note">
+                模块页面只会在沙箱 iframe 中运行，不会获得 browser.* API 或扩展执行环境。
+              </p>
+              <div class="install-actions">
+                <button class="secondary-button" type="button" data-cancel-install>取消</button>
+                <button class="primary-button" type="button" data-confirm-install>同意并安装</button>
+              </div>
+            </div>
+            <p class="install-status" data-testid="install-module-status" role="status" aria-live="polite"></p>
+          </section>
+        </div>
+      </section>
     </main>
     <script type="module" src="./main.ts"></script>
   </body>

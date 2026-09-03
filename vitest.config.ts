@@ -15,6 +15,7 @@ export default defineConfig({
   root: r('src'),
   resolve: {
     alias: {
+      '@oneweb/module-sdk': r('packages/module-sdk/src/index.ts'),
       '~/': `${r('src')}/`,
     },
   },

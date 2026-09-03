@@ -44,13 +44,19 @@ export async function getManifest() {
     },
     permissions: [
       'activeTab',
+      'scripting',
       'storage',
       'tabs',
       ...(isFirefox ? [] : ['sidePanel']),
     ],
+    optional_permissions: ['bookmarks'],
     host_permissions: [
       'https://github.com/*',
       `${repolensOrigin}/*`,
+    ],
+    optional_host_permissions: [
+      'https://*/*',
+      'http://*/*',
     ],
     content_scripts: [
       {
@@ -73,12 +79,12 @@ export async function getManifest() {
     content_security_policy: {
       extension_pages: isDev
         // this is required on dev for Vite script to load
-        ? `script-src 'self' http://localhost:${port}; object-src 'self'; frame-src ${repolensOrigin}; connect-src ${repolensOrigin} http://localhost:${port}`
-        : `script-src 'self'; object-src 'self'; frame-src ${repolensOrigin}; connect-src ${repolensOrigin}`,
+        ? `script-src 'self' http://localhost:${port}; object-src 'self'; frame-src ${repolensOrigin} https: http://localhost:* http://127.0.0.1:*; connect-src https: http:`
+        : `script-src 'self'; object-src 'self'; frame-src ${repolensOrigin} https: http://localhost:* http://127.0.0.1:*; connect-src https: http:`,
     },
     browser_specific_settings: {
       gecko: {
-        id: 'repolens@one-webext.local',
+        id: 'one-web@juckz.local',
         strict_min_version: '121.0',
       },
     },
@@ -89,7 +95,7 @@ export async function getManifest() {
     delete manifest.side_panel
     manifest.sidebar_action = {
       default_panel: 'dist/sidebar/index.html',
-      default_title: 'RepoLens',
+      default_title: 'OneWeb',
       default_icon: './assets/icon-128.png',
     }
   }

@@ -231,7 +231,7 @@ export default defineComponent({
       <img
         src="/assets/icon.png"
         class="icon-btn mx-2 w-20 text-2xl"
-        alt="extension icon"
+        alt="OneWeb icon"
       >
       <div>Options</div>
       <SharedSubtitle />

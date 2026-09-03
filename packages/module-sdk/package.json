@@ -1,0 +1,37 @@
+{
+  "name": "@oneweb/module-sdk",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./runtime": {
+      "types": "./dist/runtime-client.d.ts",
+      "import": "./dist/runtime-client.js"
+    },
+    "./capability-rpc": {
+      "types": "./dist/capability-rpc.d.ts",
+      "import": "./dist/capability-rpc.js"
+    },
+    "./capability-client": {
+      "types": "./dist/capability-client.d.ts",
+      "import": "./dist/capability-client.js"
+    },
+    "./storage-module": {
+      "types": "./dist/storage-module.d.ts",
+      "import": "./dist/storage-module.js"
+    },
+    "./contract.json": "./contract.json"
+  },
+  "files": [
+    "contract.json",
+    "dist"
+  ],
+  "scripts": {
+    "build": "pnpm --dir ../.. exec rimraf packages/module-sdk/dist && pnpm --dir ../.. exec tsc -p packages/module-sdk/tsconfig.build.json",
+    "verify": "node scripts/verify-package.mjs"
+  }
+}

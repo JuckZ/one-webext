@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "manifestVersion": 1,
+  "protocol": {
+    "name": "oneweb.module",
+    "version": 1
+  },
+  "runtime": "remote-frame",
+  "activationModes": [
+    "manual",
+    "suggest"
+  ],
+  "contexts": {
+    "tab.basic": [
+      "url",
+      "title",
+      "faviconUrl",
+      "navigationId"
+    ],
+    "github.repository": [
+      "repo",
+      "url",
+      "pageType"
+    ],
+    "page.selection": [
+      "text"
+    ],
+    "page.metadata": [
+      "language",
+      "title",
+      "description",
+      "imageUrl"
+    ]
+  },
+  "capabilities": [
+    "tabs.open",
+    "storage.module",
+    "clipboard.write",
+    "downloads.create",
+    "notifications.show",
+    "auth.start"
+  ],
+  "typedCapabilities": {
+    "storage.module": {
+      "operations": [
+        "read",
+        "replace",
+        "clear"
+      ],
+      "document": {
+        "maximumBytes": 12288,
+        "maximumDepth": 6,
+        "maximumNodes": 256
+      },
+      "revisionEntropyBytes": 24
+    }
+  },
+  "moduleToHostPortMessages": [
+    "MODULE_READY",
+    "CONTEXT_ACCEPTED",
+    "MODULE_STATUS"
+  ],
+  "hostToModulePortMessages": [
+    "CONTEXT_UPDATE"
+  ]
+}

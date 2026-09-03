@@ -28,6 +28,21 @@
       "webextension-polyfill"
     ],
     "paths": {
+      "@oneweb/module-sdk": [
+        "packages/module-sdk/src/index.ts"
+      ],
+      "@oneweb/module-sdk/capability-client": [
+        "packages/module-sdk/src/capability-client.ts"
+      ],
+      "@oneweb/module-sdk/capability-rpc": [
+        "packages/module-sdk/src/capability-rpc.ts"
+      ],
+      "@oneweb/module-sdk/runtime": [
+        "packages/module-sdk/src/runtime-client.ts"
+      ],
+      "@oneweb/module-sdk/storage-module": [
+        "packages/module-sdk/src/storage-module.ts"
+      ],
       "~/*": [
         "src/*"
       ]
@@ -36,6 +51,7 @@
   "exclude": [
     "dist",
     "extension",
-    "node_modules"
+    "node_modules",
+    "packages/module-sdk/dist"
   ]
 }

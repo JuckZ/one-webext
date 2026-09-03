@@ -100,7 +100,7 @@ onMounted(() => {
       :class="show ? 'display-block' : 'display-none'"
     >
       <h1 class="text-lg">
-        Vitesse WebExt
+        OneWeb
       </h1>
       <SharedSubtitle />
       <div>

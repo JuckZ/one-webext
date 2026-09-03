@@ -1,139 +1,239 @@
 import type { Runtime } from 'webextension-polyfill'
+import { storageModuleCapabilityCatalog } from '@oneweb/module-sdk'
 import browser from 'webextension-polyfill'
+import { BookmarkDoctorClient } from '~/modules/builtin/bookmark-doctor'
+import { BrowserJournalClient } from '~/modules/builtin/browser-journal'
+import { ClashControlClient } from '~/modules/builtin/clash-control'
+import { PageToolboxClient } from '~/modules/builtin/page-toolbox'
+import { type ContextSnapshot, createDefaultContextBroker } from '~/modules/context-broker'
 import {
-  bridgeEnvelope,
-  type BridgeEnvelope,
-  isExtensionMessage,
-  isTrustedEmbedMessage,
-  normalizeRepoContext,
-  type PanelContextMessage,
-  type PanelReadyMessage,
-  type RepoContext,
-  REPOLENS_ORIGIN,
-} from '~/repolens/protocol'
+  type ContextSnapshotMessage,
+  type ContextSubscriberReadyMessage,
+  isContextRuntimeMessage,
+} from '~/modules/context-protocol'
+import { ModuleFrameHost } from '~/modules/frame-host'
+import { ModuleManagementClient } from '~/modules/management-client'
+import { StorageModuleClient } from '~/modules/storage-module-client'
+import type { InstalledModuleRecord } from '~/modules/types'
+import { resolveRepoLensInitFields } from '~/repolens/authorization'
+import { ModuleManagementView } from './module-management-view'
 import './sidebar.css'
 
-const frame = document.querySelector<HTMLIFrameElement>('[data-testid="repolens-embed"]')!
+const REPOLENS_MODULE_ID = 'dev.juck.repolens'
+const frame = document.querySelector<HTMLIFrameElement>('[data-testid="oneweb-module-frame"]')!
 const bridgeState = document.querySelector<HTMLElement>('.bridge-state')!
-const repoLabel = document.querySelector<HTMLElement>('[data-testid="current-repo"]')!
+const contextLabel = document.querySelector<HTMLElement>('[data-testid="current-context"]')!
+const moduleName = document.querySelector<HTMLElement>('[data-testid="module-name"]')!
+const moduleMark = document.querySelector<HTMLElement>('.brand-mark')!
+const shell = document.querySelector<HTMLElement>('[data-testid="oneweb-side-panel"]')!
+const moduleSurface = document.querySelector<HTMLElement>('[data-testid="module-surface"]')!
+const managerSurface = document.querySelector<HTMLElement>('[data-testid="module-manager"]')!
+const manageButton = document.querySelector<HTMLButtonElement>('[data-testid="manage-modules"]')!
+const closeManagerButton = document.querySelector<HTMLButtonElement>('[data-testid="close-module-manager"]')!
+const unavailable = document.querySelector<HTMLElement>('[data-testid="module-unavailable"]')!
+const unavailableTitle = unavailable.querySelector<HTMLElement>('[data-unavailable-title]')!
+const unavailableDescription = unavailable.querySelector<HTMLElement>('[data-unavailable-description]')!
+const openManagerButton = unavailable.querySelector<HTMLButtonElement>('[data-open-module-manager]')!
 const extensionOrigin = new URL(browser.runtime.getURL('/')).origin
+const requestedModuleId = new URL(globalThis.location.href).searchParams.get('moduleId')
+const contextBroker = createDefaultContextBroker()
+const managementClient = new ModuleManagementClient({
+  sendMessage: message => browser.runtime.sendMessage(message),
+  permissions: browser.permissions,
+})
+const browserJournalClient = new BrowserJournalClient({
+  sendMessage: message => browser.runtime.sendMessage(message),
+})
+const bookmarkDoctorClient = new BookmarkDoctorClient({
+  sendMessage: message => browser.runtime.sendMessage(message),
+  permissions: browser.permissions,
+})
+const clashControlClient = new ClashControlClient(
+  { sendMessage: message => browser.runtime.sendMessage(message) },
+  browser.permissions,
+)
+const pageToolboxClient = new PageToolboxClient(
+  { sendMessage: message => browser.runtime.sendMessage(message) },
+  browser.permissions,
+)
+const storageModuleClient = new StorageModuleClient({
+  sendMessage: message => browser.runtime.sendMessage(message),
+})
+const contextRequest: ContextSubscriberReadyMessage = {
+  channel: 'oneweb.context',
+  version: 1,
+  type: 'CONTEXT_SUBSCRIBER_READY',
+}
 
-let activeChallenge = ''
-let sessionNonce = ''
-let bridgeReady = false
-let currentContext: RepoContext | null = null
+let moduleHost: ModuleFrameHost | null = null
+let currentSnapshot: ContextSnapshot | null = null
+let activeRecord: InstalledModuleRecord | null = null
+let managementView: ModuleManagementView
 
-frame.src = `${REPOLENS_ORIGIN}/embed?parentOrigin=${encodeURIComponent(extensionOrigin)}`
-
-function setBridgeLabel(value: string, ready = bridgeReady) {
-  bridgeReady = ready
+function setBridgeLabel(value: string, ready = false) {
   bridgeState.textContent = value
   bridgeState.dataset.ready = String(ready)
 }
 
-function createSessionNonce() {
-  const bytes = crypto.getRandomValues(new Uint8Array(24))
-  return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '')
+function updateModuleIdentity(record: InstalledModuleRecord) {
+  moduleName.textContent = record.manifest.name
+  moduleMark.textContent = record.manifest.name.slice(0, 1).toUpperCase()
+  document.title = `OneWeb · ${record.manifest.name}`
 }
 
-function postToEmbed(type: 'BRIDGE_INIT' | 'CONTEXT_UPDATE' | 'REQUEST_DEEP_ANALYSIS', fields: Record<string, unknown> = {}) {
-  frame.contentWindow?.postMessage(
-    bridgeEnvelope(type, { sessionNonce, ...fields }),
-    REPOLENS_ORIGIN,
-  )
+function destroyModuleFrame() {
+  moduleHost?.destroy()
+  moduleHost = null
+  frame.removeAttribute('src')
+  frame.hidden = true
+}
+
+function showModuleUnavailable(record: InstalledModuleRecord | null, message: string) {
+  destroyModuleFrame()
+  activeRecord = record
+  if (record) {
+    updateModuleIdentity(record)
+    contextLabel.textContent = record.enabled ? '模块当前不可用' : '模块已停用'
+    unavailableTitle.textContent = `${record.manifest.name}${record.enabled ? ' 不可用' : ' 已停用'}`
+  }
+  else {
+    moduleName.textContent = 'OneWeb'
+    moduleMark.textContent = 'O'
+    contextLabel.textContent = '尚无可用模块'
+    unavailableTitle.textContent = '模块不可用'
+  }
+  unavailableDescription.textContent = message
+  unavailable.hidden = false
+  setBridgeLabel(record?.enabled ? '模块不可用' : '模块已停用')
+}
+
+function activateModule(record: InstalledModuleRecord) {
+  if (!record.enabled) {
+    showModuleUnavailable(record, '你可以在模块管理中重新启用它。')
+    return
+  }
+  if (record.manifest.runtime !== 'remote-frame') {
+    showModuleUnavailable(record, '该模块的运行入口尚未接入当前侧边栏。')
+    return
+  }
+
+  destroyModuleFrame()
+  activeRecord = record
+  unavailable.hidden = true
+  frame.hidden = false
+  updateModuleIdentity(record)
+  setBridgeLabel('正在建立安全桥接…')
+  moduleHost = new ModuleFrameHost({
+    frame,
+    record,
+    extensionOrigin,
+    resolveInitFields: selected => resolveRepoLensInitFields(selected, extensionOrigin),
+    onReady: () => setBridgeLabel('安全桥接已连接', true),
+    onContextAccepted: message => setBridgeLabel(`已同步 ${message.contextLabel || '当前上下文'}`, true),
+    onStatus: (message) => {
+      setBridgeLabel(message.label || `${record.manifest.name} · ${message.state || '运行中'}`, true)
+    },
+    ...(record.manifest.capabilities.includes('storage.module')
+      ? {
+          capabilityRpc: {
+            catalog: storageModuleCapabilityCatalog,
+            openSession: binding => storageModuleClient.open(binding),
+            createHandlers: binding => storageModuleClient.createHandlers(binding),
+            closeSession: async (binding) => {
+              await storageModuleClient.close(binding)
+            },
+          },
+        }
+      : {}),
+  })
+  moduleHost.start()
+  sendCurrentContext()
+  void requestCurrentContext()
 }
 
 function sendCurrentContext() {
-  if (!bridgeReady || !currentContext)
+  if (!moduleHost || !currentSnapshot)
     return
-  const { repo, url, pageType } = currentContext
-  postToEmbed('CONTEXT_UPDATE', { context: { repo, url, pageType } })
+  moduleHost.updateContext(currentSnapshot)
 }
 
-async function requestAuthorizationCode() {
-  try {
-    const stored = await browser.storage.local.get('repolensPairingToken')
-    const pairingToken = typeof stored.repolensPairingToken === 'string' ? stored.repolensPairingToken : ''
-    const response = await fetch(`${REPOLENS_ORIGIN}/api/auth/extension-grants`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        ...(pairingToken ? { 'x-repolens-pairing-token': pairingToken } : {}),
-      },
-      body: JSON.stringify({ extensionOrigin }),
-    })
-    if (!response.ok)
-      return undefined
-    const data = await response.json() as { authorizationCode?: unknown }
-    return typeof data.authorizationCode === 'string' ? data.authorizationCode : undefined
-  }
-  catch {
-    return undefined
-  }
-}
-
-async function handleEmbedMessage(event: MessageEvent) {
-  if (!isTrustedEmbedMessage(event, REPOLENS_ORIGIN, frame.contentWindow))
+function acceptContextSnapshot(message: ContextSnapshotMessage) {
+  const snapshot = contextBroker.normalizeSnapshot(message.tabId, message.contexts)
+  if (!snapshot)
     return
-  const message: BridgeEnvelope = event.data
-
-  if (message.type === 'BRIDGE_HELLO') {
-    if (typeof message.challenge !== 'string' || message.challenge.length < 8 || message.challenge === activeChallenge)
-      return
-    activeChallenge = message.challenge
-    sessionNonce = createSessionNonce()
-    setBridgeLabel('正在验证一次性会话…', false)
-    const authorizationCode = await requestAuthorizationCode()
-    postToEmbed('BRIDGE_INIT', {
-      challenge: message.challenge,
-      ...(authorizationCode ? { authorizationCode } : {}),
-    })
-    return
-  }
-
-  if (!sessionNonce || message.sessionNonce !== sessionNonce)
-    return
-
-  if (message.type === 'BRIDGE_READY') {
-    setBridgeLabel('安全桥接已连接', true)
-    sendCurrentContext()
-  }
-  else if (message.type === 'CONTEXT_ACCEPTED') {
-    setBridgeLabel(`已同步 ${message.repo || '当前仓库'}`)
-  }
-  else if (message.type === 'ANALYSIS_STATE' && message.state) {
-    setBridgeLabel(`RepoLens · ${message.state}`)
-  }
-}
-
-function acceptPanelContext(message: PanelContextMessage) {
-  const context = normalizeRepoContext(message.context)
-  if (!context)
-    return
-  currentContext = context
-  repoLabel.textContent = context.repo
+  snapshot.revision = message.revision
+  currentSnapshot = snapshot
+  const repository = snapshot.contexts['github.repository']
+  if (moduleHost)
+    contextLabel.textContent = typeof repository?.repo === 'string' ? repository.repo : '等待页面上下文'
   sendCurrentContext()
 }
 
-function handleRuntimeMessage(message: unknown, _sender: Runtime.MessageSender) {
-  if (isExtensionMessage(message) && message.type === 'PANEL_CONTEXT')
-    acceptPanelContext(message)
+async function requestCurrentContext() {
+  const response = await browser.runtime.sendMessage(contextRequest).catch(() => null)
+  if (isContextRuntimeMessage(response) && response.type === 'CONTEXT_SNAPSHOT')
+    acceptContextSnapshot(response)
+}
+
+function handleRuntimeMessage(message: unknown, sender: Runtime.MessageSender) {
+  if (!sender.tab && isContextRuntimeMessage(message) && message.type === 'CONTEXT_SNAPSHOT')
+    acceptContextSnapshot(message)
   return undefined
 }
 
-window.addEventListener('message', handleEmbedMessage)
 browser.runtime.onMessage.addListener(handleRuntimeMessage)
 
-const request: PanelReadyMessage = {
-  channel: 'repolens.extension',
-  version: 1,
-  type: 'PANEL_READY',
+function openModuleManager() {
+  shell.dataset.view = 'manager'
+  moduleSurface.hidden = true
+  managerSurface.hidden = false
+  manageButton.setAttribute('aria-expanded', 'true')
+  void managementView.refresh()
 }
+
+function closeModuleManager() {
+  shell.dataset.view = 'module'
+  managerSurface.hidden = true
+  moduleSurface.hidden = false
+  manageButton.setAttribute('aria-expanded', 'false')
+}
+
+managementView = new ModuleManagementView({
+  root: managerSurface,
+  client: managementClient,
+  browserJournal: browserJournalClient,
+  bookmarkDoctor: bookmarkDoctorClient,
+  clashControl: clashControlClient,
+  pageToolbox: pageToolboxClient,
+  onRecordChanged: (record) => {
+    if (record.manifest.id === activeRecord?.manifest.id)
+      activateModule(record)
+  },
+  onRecordRemoved: (record) => {
+    if (record.manifest.id === activeRecord?.manifest.id)
+      showModuleUnavailable(null, '该模块已经从 OneWeb 中移除。')
+  },
+})
+
+browser.permissions.onRemoved.addListener((permissions) => {
+  if (permissions.permissions?.includes('bookmarks') || permissions.origins?.length)
+    void managementView.refresh()
+})
+
+manageButton.addEventListener('click', () => managerSurface.hidden ? openModuleManager() : closeModuleManager())
+closeManagerButton.addEventListener('click', closeModuleManager)
+openManagerButton.addEventListener('click', openModuleManager)
 
 async function initialize() {
-  const response = await browser.runtime.sendMessage(request).catch(() => null)
-  if (isExtensionMessage(response) && response.type === 'PANEL_CONTEXT')
-    acceptPanelContext(response)
+  const records = await managementClient.list()
+  const selectedModuleId = requestedModuleId && requestedModuleId.length <= 128
+    ? requestedModuleId
+    : REPOLENS_MODULE_ID
+  const record = records.find(candidate => candidate.manifest.id === selectedModuleId) || null
+  if (record)
+    activateModule(record)
+  else
+    showModuleUnavailable(null, '所选模块记录不存在，请打开模块管理检查当前状态。')
 }
 
-void initialize()
+void initialize().catch(() => showModuleUnavailable(null, '模块初始化失败，请稍后重试。'))

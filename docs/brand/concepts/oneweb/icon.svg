@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="oneweb-bg" x1="18" y1="14" x2="112" y2="118" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="30" fill="url(#oneweb-bg)"/>
+  <path d="M28 47 46 31h12v67H44V50l-9 8-7-11Z" fill="#FFFFFF"/>
+  <rect x="72" y="29" width="27" height="20" rx="8" fill="#FFFFFF" fill-opacity=".96"/>
+  <rect x="72" y="55" width="27" height="20" rx="8" fill="#FFFFFF" fill-opacity=".8"/>
+  <rect x="72" y="81" width="27" height="20" rx="8" fill="#FFFFFF" fill-opacity=".64"/>
+</svg>

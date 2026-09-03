@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="onemate-bg" x1="17" y1="13" x2="111" y2="116" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FB923C"/>
+      <stop offset="1" stop-color="#F43F5E"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="30" fill="url(#onemate-bg)"/>
+  <circle cx="39" cy="39" r="17" fill="#172033"/>
+  <circle cx="89" cy="39" r="17" fill="#172033"/>
+  <path d="M27 63c0-23 17-37 37-37s37 14 37 37v10c0 21-17 34-37 34S27 94 27 73V63Z" fill="#FFFFFF"/>
+  <ellipse cx="47" cy="65" rx="13" ry="17" transform="rotate(22 47 65)" fill="#172033"/>
+  <ellipse cx="81" cy="65" rx="13" ry="17" transform="rotate(-22 81 65)" fill="#172033"/>
+  <circle cx="48" cy="63" r="4" fill="#FFFFFF"/>
+  <circle cx="80" cy="63" r="4" fill="#FFFFFF"/>
+  <path d="M58 81c0-4 3-7 6-7s6 3 6 7c0 3-3 6-6 6s-6-3-6-6Z" fill="#172033"/>
+  <path d="M64 86c0 7-10 9-13 3m13-3c0 7 10 9 13 3" fill="none" stroke="#172033" stroke-width="4" stroke-linecap="round"/>
+</svg>
