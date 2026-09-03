@@ -81,5 +81,7 @@ Firefox ID `one-web@juckz.local`. The file lists and extracted text contain no s
 package metadata, local dependency, user-home path, secret marker, Tampermonkey/GM/userscript code,
 external CDN, remote `eval`, hard-coded private-site URL or stale product identity.
 
-The RC may be identified as `v0.1.0-rc.1`. This checkpoint creates no GitHub Release, npm package,
-browser-store upload or formal `0.1.0` publication; each remains a separately authorized action.
+The accepted source commit is identified by annotated tag `v0.1.0-rc.1`. The checkpoint evidence is
+a follow-up documentation commit and does not change the tagged package or runtime sources. No
+GitHub Release, npm package, browser-store upload or formal `0.1.0` publication was created; each
+remains a separately authorized action.

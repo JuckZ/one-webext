@@ -98,5 +98,6 @@ The new clone passed frozen install, typecheck, lint, **558/558 unit tests**, th
 manifest validation with **0 errors / 0 notices / 0 warnings**, and the **1/1 real Firefox gate**.
 Both final browser archives passed integrity, identity, dependency, absolute-path, development-file,
 secret-marker and rejected-runtime inspection. RepoLens retained its reviewed offline vendor and
-reproduced its accepted drift. Phase 8 is complete; an RC tag may identify the accepted commit, but
-no GitHub Release, store submission or formal release is authorized by this decision.
+reproduced its accepted drift. Phase 8 is complete, and annotated tag `v0.1.0-rc.1` points exactly to
+the accepted source. The evidence-only follow-up does not change packaged code. No GitHub Release,
+store submission or formal release is authorized by this decision.

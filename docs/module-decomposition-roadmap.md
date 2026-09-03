@@ -1997,4 +1997,6 @@ with **0 errors / 0 notices / 0 warnings**, and the **1/1 real Firefox gate** fr
 browser profiles. The final 12-file Chromium ZIP and Firefox XPI passed content and security review;
 their exact SHA-256 values are recorded in the checkpoint. RepoLens passes **34/34** plus its offline
 **14-file vendor** gate while the accepted SDK drift remains explicit. Phase 8 is complete. Formal
-release, GitHub Release creation and browser-store upload require separate authorization.
+release, GitHub Release creation and browser-store upload require separate authorization. Annotated
+tag `v0.1.0-rc.1` points exactly to the accepted source commit; the later evidence-only documentation
+commit does not change packaged code.
