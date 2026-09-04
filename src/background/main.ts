@@ -32,6 +32,12 @@ import {
   type PageToolboxHostPort,
   type PageToolboxScriptingApi,
 } from '~/modules/builtin/page-toolbox'
+import {
+  createSendToOpenListProfileStore,
+  createSendToOpenListResponse,
+  isSendToOpenListRequest,
+  SendToOpenListController,
+} from '~/modules/builtin/send-to-openlist'
 import { type ContextSnapshot, createDefaultContextBroker } from '~/modules/context-broker'
 import {
   createContextSnapshotMessage,
@@ -100,9 +106,16 @@ const pageToolboxController = new PageToolboxController({
   extensionId: browser.runtime.id,
   originInUse: originPattern => builtinOriginUsage.usedByAnother('page-toolbox', originPattern),
 })
+const sendToOpenListController = new SendToOpenListController({
+  registry: defaultModuleRegistry,
+  permissions: browser.permissions,
+  store: createSendToOpenListProfileStore(browser.storage.local),
+  originInUse: originPattern => builtinOriginUsage.usedByAnother('send-to-openlist', originPattern),
+})
 builtinOriginUsage.register('bookmark-doctor', originPattern => bookmarkDoctorController.usesOriginPattern(originPattern))
 builtinOriginUsage.register('clash-control', originPattern => clashControlController.usesOriginPattern(originPattern))
 builtinOriginUsage.register('page-toolbox', originPattern => pageToolboxController.usesOriginPattern(originPattern))
+builtinOriginUsage.register('send-to-openlist', originPattern => sendToOpenListController.usesOriginPattern(originPattern))
 bookmarkDoctorController.setOriginInUse(
   originPattern => builtinOriginUsage.usedByAnother('bookmark-doctor', originPattern),
 )
@@ -113,17 +126,21 @@ const moduleManager = new ModuleManager(defaultModuleRegistry, moduleInstaller, 
     bookmarkDoctorController.handleInstalledRecordChanged(record)
     await clashControlController.handleInstalledRecordChanged(record)
     pageToolboxController.handleInstalledRecordChanged(record)
+    await sendToOpenListController.handleInstalledRecordChanged(record)
   },
   onInstalledRecordRemoved: record => storageModuleAdapter.removeInstalledRecord(record.manifest.id),
 })
 const extensionBaseUrl = browser.runtime.getURL('/')
 
 void initializeDefaultModuleRegistry()
-  .then(() => Promise.all([
-    browserJournalController.startup(),
-    clashControlController.startup(),
-    pageToolboxController.startup(),
-  ]))
+  .then(async () => {
+    await Promise.all([
+      browserJournalController.startup(),
+      clashControlController.startup(),
+      pageToolboxController.startup(),
+      sendToOpenListController.startup(),
+    ])
+  })
   .catch((error) => {
     console.error('Failed to initialize the OneWeb module registry', error)
   })
@@ -150,6 +167,70 @@ async function updateTabContext(tabId: number, href: string | undefined) {
 }
 
 browser.runtime.onMessage.addListener((message: unknown, sender: Runtime.MessageSender) => {
+  if (isSendToOpenListRequest(message)) {
+    if (!isTrustedModuleManagementSender(sender, browser.runtime.id, extensionBaseUrl))
+      return undefined
+    if (message.type === 'SEND_TO_OPENLIST_PREPARE') {
+      return sendToOpenListController.prepare(message.profile).then(result => createSendToOpenListResponse(
+        message.type,
+        result,
+      ))
+    }
+    if (message.type === 'SEND_TO_OPENLIST_CONNECT') {
+      return sendToOpenListController.connect(message.preparation, message.token).then(result => createSendToOpenListResponse(
+        message.type,
+        result,
+      ))
+    }
+    if (message.type === 'SEND_TO_OPENLIST_STATUS') {
+      return sendToOpenListController.status().then(result => createSendToOpenListResponse(
+        message.type,
+        { ok: true, value: result },
+      ))
+    }
+    if (message.type === 'SEND_TO_OPENLIST_DISCOVER_TOOLS') {
+      return sendToOpenListController.discoverTools(message.destinationPath).then(result => createSendToOpenListResponse(
+        message.type,
+        result,
+      ))
+    }
+    if (message.type === 'SEND_TO_OPENLIST_SUBMIT') {
+      return sendToOpenListController.submit(
+        message.candidates,
+        message.destinationPath,
+        message.tool,
+      ).then(result => createSendToOpenListResponse(message.type, result))
+    }
+    if (message.type === 'SEND_TO_OPENLIST_LIST_TASKS') {
+      return sendToOpenListController.listTasks(message.list).then(result => createSendToOpenListResponse(
+        message.type,
+        result,
+      ))
+    }
+    if (message.type === 'SEND_TO_OPENLIST_PREPARE_CANCEL') {
+      return sendToOpenListController.prepareCancel(message.taskId).then(result => createSendToOpenListResponse(
+        message.type,
+        result,
+      ))
+    }
+    if (message.type === 'SEND_TO_OPENLIST_CONFIRM_CANCEL') {
+      return sendToOpenListController.confirmCancel(message.token).then(result => createSendToOpenListResponse(
+        message.type,
+        result,
+      ))
+    }
+    if (message.type === 'SEND_TO_OPENLIST_DELETE_PROFILE') {
+      return sendToOpenListController.deleteProfile().then(result => createSendToOpenListResponse(
+        message.type,
+        { ok: true, value: result },
+      ))
+    }
+    return sendToOpenListController.disconnect().then(result => createSendToOpenListResponse(
+      message.type,
+      { ok: true, value: result },
+    ))
+  }
+
   if (isPageToolboxManagementRequest(message)) {
     if (!isTrustedModuleManagementSender(sender, browser.runtime.id, extensionBaseUrl))
       return undefined
@@ -420,6 +501,7 @@ browser.permissions.onRemoved.addListener((permissions) => {
   void bookmarkDoctorController.handlePermissionsRemoved(permissions)
   void clashControlController.handlePermissionsRemoved(permissions)
   void pageToolboxController.handlePermissionsRemoved(permissions)
+  void sendToOpenListController.handlePermissionsRemoved(permissions)
 })
 
 if (!__FIREFOX__ && typeof chrome !== 'undefined' && chrome.sidePanel?.setPanelBehavior) {
