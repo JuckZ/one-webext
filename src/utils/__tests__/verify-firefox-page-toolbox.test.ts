@@ -59,7 +59,7 @@ describe('firefox Page Toolbox gate helpers', () => {
       browser_specific_settings: { gecko: { id: 'one-web@juckz.local' } },
       manifest_version: 3,
       optional_host_permissions: ['https://*/*', 'http://*/*'],
-      permissions: ['activeTab', 'scripting', 'storage', 'tabs'],
+      permissions: ['activeTab', 'contextMenus', 'scripting', 'storage', 'tabs'],
       sidebar_action: { default_panel: 'dist/sidebar/index.html' },
     }
     expect(validateFirefoxArtifactManifest(manifest)).toBe(true)

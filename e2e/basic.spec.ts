@@ -130,7 +130,7 @@ test('built artifact exposes a least-privilege RepoLens side panel', async ({ ex
   const manifest = await import(`${extensionPath}/manifest.json`, { with: { type: 'json' } }).then(module => module.default)
   expect(extensionId).toMatch(/^[a-p]{32}$/)
   expect(manifest.side_panel.default_path).toBe('dist/sidebar/index.html')
-  expect(manifest.permissions).toEqual(['activeTab', 'scripting', 'storage', 'tabs', 'sidePanel'])
+  expect(manifest.permissions).toEqual(['activeTab', 'contextMenus', 'scripting', 'storage', 'tabs', 'sidePanel'])
   expect(manifest.optional_permissions).toEqual(['bookmarks'])
   expect(manifest.optional_host_permissions).toEqual(['https://*/*', 'http://*/*'])
   expect(manifest.host_permissions).toEqual(['https://github.com/*', 'http://127.0.0.1:4747/*'])
@@ -148,6 +148,423 @@ test('built artifact exposes a least-privilege RepoLens side panel', async ({ ex
   ]) {
     expect(toolboxRuntime).not.toContain(forbidden)
   }
+})
+
+test('Send to OpenList uses one approved exact origin and fixed trusted background operations', async ({
+  context,
+  extensionId,
+  openListFixture,
+}) => {
+  const panel = await openManagementPanel(context, extensionId)
+  const protectedIds = [
+    'dev.juck.repolens',
+    'dev.oneweb.bookmark-doctor',
+    'dev.oneweb.clash-control',
+    'dev.oneweb.browser-journal',
+    'dev.oneweb.page-toolbox',
+  ]
+  const protectedBefore = Object.fromEntries(await Promise.all(protectedIds.map(async id => [
+    id,
+    await readStoredModule(panel, id),
+  ])))
+  const card = panel.locator('[data-testid="module-card"][data-module-id="dev.oneweb.send-to-openlist"]')
+  await expect(card).toBeVisible()
+  await card.getByTestId('module-toggle').click()
+  await expect(card.getByTestId('module-toggle')).toHaveAttribute('aria-checked', 'true')
+
+  const profile = {
+    schemaVersion: 1,
+    id: 'primary',
+    label: 'E2E OpenList',
+    controllerOrigin: openListFixture.origin,
+  }
+  const prepared = await panel.evaluate(async profile => (
+    await chrome.runtime.sendMessage({
+      channel: 'oneweb.send-to-openlist',
+      version: 1,
+      type: 'SEND_TO_OPENLIST_PREPARE',
+      profile,
+    })
+  ).result, profile) as { ok: true, value: { originPattern: string } }
+  expect(prepared).toMatchObject({ ok: true, value: { originPattern: `${openListFixture.origin}/*` } })
+  const connected = await panel.evaluate(async ({ preparation, token }) => (
+    await chrome.runtime.sendMessage({
+      channel: 'oneweb.send-to-openlist',
+      version: 1,
+      type: 'SEND_TO_OPENLIST_CONNECT',
+      preparation,
+      token,
+    })
+  ).result, { preparation: prepared.value, token: openListFixture.token }) as { ok: boolean }
+  expect(connected.ok).toBe(true)
+  const discovered = await panel.evaluate(async () => (
+    await chrome.runtime.sendMessage({
+      channel: 'oneweb.send-to-openlist',
+      version: 1,
+      type: 'SEND_TO_OPENLIST_DISCOVER_TOOLS',
+      destinationPath: '/downloads',
+    })
+  ).result) as { ok: boolean, value: string[] }
+  expect(discovered).toEqual({ ok: true, value: openListFixture.tools })
+
+  const submitted = await panel.evaluate(async (tool) => {
+    const id = (url: string) => {
+      let hash = 0xCBF29CE484222325n
+      for (let index = 0; index < url.length; index += 1) {
+        hash ^= BigInt(url.charCodeAt(index))
+        hash = BigInt.asUintN(64, hash * 0x100000001B3n)
+      }
+      return `resource-${hash.toString(16).padStart(16, '0')}`
+    }
+    const urls = ['https://cdn.example/a?sig=a%2Bb', 'magnet:?xt=urn:btih:abc']
+    const candidates = urls.map((url, index) => ({
+      schemaVersion: 1,
+      id: id(url),
+      url,
+      kind: index === 0 ? 'https' : 'magnet',
+      source: 'manual',
+    }))
+    return (await chrome.runtime.sendMessage({
+      channel: 'oneweb.send-to-openlist',
+      version: 1,
+      type: 'SEND_TO_OPENLIST_SUBMIT',
+      candidates,
+      destinationPath: '/downloads',
+      tool,
+    })).result
+  }, openListFixture.tools[0]) as { ok: boolean, value: { entries: Array<{ status: string }> } }
+  expect(submitted.ok).toBe(true)
+  expect(submitted.value.entries.map(entry => entry.status)).toEqual(['accepted', 'accepted'])
+  expect(openListFixture.requests).toMatchObject({ me: 1, tools: 1, add: 2, unauthorized: 0 })
+  expect(openListFixture.requests.maximumAdds).toBeLessThanOrEqual(2)
+
+  const tokenSurfaces = await panel.evaluate(async (token) => {
+    const all = await chrome.storage.local.get(null)
+    return Object.entries(all)
+      .filter(([, value]) => JSON.stringify(value).includes(token))
+      .map(([key]) => key)
+  }, openListFixture.token)
+  expect(tokenSurfaces).toEqual(['oneweb.send-to-openlist.secret.v1.primary'])
+
+  await panel.evaluate(async () => chrome.runtime.sendMessage({
+    channel: 'oneweb.send-to-openlist',
+    version: 1,
+    type: 'SEND_TO_OPENLIST_DISCONNECT',
+  }))
+  expect(await panel.evaluate(async token => JSON.stringify(await chrome.storage.local.get(null)).includes(token), openListFixture.token)).toBe(false)
+  const protectedAfter = Object.fromEntries(await Promise.all(protectedIds.map(async id => [
+    id,
+    await readStoredModule(panel, id),
+  ])))
+  expect(protectedAfter).toEqual(protectedBefore)
+})
+
+test('Send to OpenList manual MVP reviews candidates and cancels only a fresh server task', async ({
+  context,
+  extensionId,
+  openListFixture,
+}) => {
+  const panel = await openManagementPanel(context, extensionId)
+  const card = panel.locator('[data-testid="module-card"][data-module-id="dev.oneweb.send-to-openlist"]')
+  await card.getByTestId('module-toggle').click()
+  await expect(card.getByTestId('module-toggle')).toHaveAttribute('aria-checked', 'true')
+  await card.getByTestId('send-openlist-profile-label').fill('Local fixture')
+  await card.getByTestId('send-openlist-origin').fill(openListFixture.origin)
+  await card.getByTestId('send-openlist-prepare').click()
+  await expect(card.getByTestId('send-openlist-connection-review')).toContainText(openListFixture.origin)
+  await panel.evaluate(token => window.prompt = () => token, openListFixture.token)
+  await card.getByTestId('send-openlist-connect').click()
+  await expect(card.getByTestId('send-openlist-manual-input')).toBeVisible()
+
+  await card.getByTestId('send-openlist-manual-input').fill([
+    'https://cdn.example/signed?b=2&a=a%2Bb#discard',
+    'https://cdn.example/signed?b=2&a=a%2Bb#duplicate',
+    'magnet:?xt=urn:btih:phase9c',
+  ].join('\n'))
+  await card.getByTestId('send-openlist-parse').click()
+  await expect(card.locator('[data-testid="send-openlist-candidates"] li')).toHaveCount(2)
+  await expect(card.getByText('https://cdn.example/signed?b=2&a=a%2Bb', { exact: true })).toBeVisible()
+  await card.getByTestId('send-openlist-path').fill('/downloads')
+  await card.getByTestId('send-openlist-tools').click()
+  await expect(card.getByTestId('send-openlist-tool')).toHaveValue('SimpleHttp')
+  expect(openListFixture.requests.add).toBe(0)
+  await card.getByTestId('send-openlist-submit').click()
+  await expect(card.locator('[data-testid="send-openlist-results"] li')).toHaveCount(2)
+  await expect(card.getByTestId('send-openlist-results')).toContainText('已受理')
+  expect(openListFixture.requests.add).toBe(2)
+
+  await card.getByTestId('send-openlist-list-undone').click()
+  const undone = card.getByTestId('send-openlist-undone')
+  await expect(undone.locator('li')).toHaveCount(2)
+  await expect(undone).toContainText('<img data-openlist-xss src=x> task 1')
+  expect(await undone.locator('img[data-openlist-xss]').count()).toBe(0)
+  await undone.locator('li').first().getByTestId('send-openlist-prepare-cancel').click()
+  const review = card.getByTestId('send-openlist-cancel-review')
+  await expect(review).toContainText('task-1')
+  expect(openListFixture.requests.cancel).toBe(0)
+  await review.getByTestId('send-openlist-confirm-cancel').click()
+  await expect(card.getByTestId('send-openlist-message')).toContainText('task-1')
+  expect(openListFixture.requests.cancel).toBe(1)
+  expect(openListFixture.requests.undone).toBe(2)
+
+  await card.getByTestId('send-openlist-list-done').click()
+  await expect(card.getByTestId('send-openlist-done')).toContainText('task-1')
+  expect(openListFixture.requests.done).toBe(1)
+})
+
+test('Send to OpenList discovers only reviewed top-frame browser resources without submitting', async ({
+  context,
+  extensionId,
+  moduleFixtures,
+  openListFixture,
+}) => {
+  const siteOrigin = new URL(moduleFixtures.primary.manifestUrl).origin
+  const site = await context.newPage()
+  await site.goto(`${siteOrigin}/journal-page-toolbox-poc`, { waitUntil: 'domcontentloaded' })
+  const panel = await openManagementPanel(context, extensionId)
+  const card = panel.locator('[data-testid="module-card"][data-module-id="dev.oneweb.send-to-openlist"]')
+  await card.getByTestId('module-toggle').click()
+  await card.getByTestId('send-openlist-profile-label').fill('Discovery fixture')
+  await card.getByTestId('send-openlist-origin').fill(openListFixture.origin)
+  await card.getByTestId('send-openlist-prepare').click()
+  await panel.evaluate(token => window.prompt = () => token, openListFixture.token)
+  await card.getByTestId('send-openlist-connect').click()
+  await expect(card.getByTestId('send-openlist-scan-page')).toBeVisible()
+
+  await site.bringToFront()
+  const captured = await panel.evaluate(async () => (
+    await chrome.runtime.sendMessage({
+      channel: 'oneweb.send-to-openlist',
+      version: 1,
+      type: 'SEND_TO_OPENLIST_CAPTURE_CURRENT_PAGE',
+    })
+  ).result) as { ok: boolean, value: { candidates: Array<{ source: string, url: string }> } }
+  expect(captured).toMatchObject({
+    ok: true,
+    value: { candidates: [{ source: 'current-page', url: `${siteOrigin}/journal-page-toolbox-poc` }] },
+  })
+  const scanned = await panel.evaluate(async () => (
+    await chrome.runtime.sendMessage({
+      channel: 'oneweb.send-to-openlist',
+      version: 1,
+      type: 'SEND_TO_OPENLIST_SCAN_CURRENT_PAGE',
+    })
+  ).result) as { ok: boolean, value: { candidates: Array<{ source: string, url: string }>, rejectedCount: number } }
+  expect(scanned.ok).toBe(true)
+  expect(scanned.value.candidates).toEqual(expect.arrayContaining([
+    expect.objectContaining({ url: 'https://cdn.example/resource?sig=a%2Bb&part=1', source: 'page-scan' }),
+    expect.objectContaining({ url: 'http://127.1/private', source: 'page-scan' }),
+    expect.objectContaining({ url: 'https://cdn.example/video.mp4', source: 'page-scan' }),
+  ]))
+  expect(JSON.stringify(scanned)).not.toContain('javascript:void')
+
+  await panel.bringToFront()
+  await card.getByTestId('send-openlist-refresh-discovery').click()
+  const candidates = card.getByTestId('send-openlist-candidates')
+  await expect(candidates).toContainText('https://cdn.example/resource?sig=a%2Bb&part=1')
+  await expect(candidates).toContainText('已阻止本地/私网目标')
+  await expect(candidates).toContainText('<img data-discovery-xss src=x>')
+  expect(await candidates.locator('img[data-discovery-xss]').count()).toBe(0)
+  expect(await candidates.locator('input:disabled').count()).toBe(2)
+  expect(openListFixture.requests.add).toBe(0)
+  expect((await panel.evaluate(() => chrome.runtime.getManifest())).content_scripts)
+    .toEqual([expect.objectContaining({ matches: ['https://github.com/*'], all_frames: false })])
+})
+
+test('Send to OpenList keeps OpenList and AList profiles, secrets and lifecycle isolated', async ({
+  alistFixture,
+  context,
+  extensionId,
+  moduleFixtures,
+  openListFixture,
+}) => {
+  let panel = await openManagementPanel(context, extensionId)
+  const moduleId = 'dev.oneweb.send-to-openlist'
+  const protectedIds = [
+    'dev.juck.repolens',
+    'dev.oneweb.bookmark-doctor',
+    'dev.oneweb.clash-control',
+    'dev.oneweb.browser-journal',
+    'dev.oneweb.page-toolbox',
+    moduleFixtures.primary.manifest.id,
+    moduleFixtures.secondary.manifest.id,
+  ]
+  const protectedBefore = Object.fromEntries(await Promise.all(protectedIds.map(async id => [
+    id,
+    await readStoredModule(panel, id),
+  ])))
+  const localIsolationIds = protectedIds.filter(id => id !== 'dev.oneweb.browser-journal')
+  const localBefore = await seedModuleLocalState(panel, localIsolationIds)
+  const card = panel.locator(`[data-testid="module-card"][data-module-id="${moduleId}"]`)
+  await card.getByTestId('module-toggle').click()
+
+  const connect = async (id: string, label: string, origin: string, token: string) => {
+    const prepared = await panel.evaluate(async profile => (
+      await chrome.runtime.sendMessage({
+        channel: 'oneweb.send-to-openlist',
+        version: 1,
+        type: 'SEND_TO_OPENLIST_PREPARE',
+        profile,
+      })
+    ).result, { schemaVersion: 1, id, label, controllerOrigin: origin }) as {
+      ok: boolean
+      value: unknown
+    }
+    expect(prepared.ok).toBe(true)
+    const connected = await panel.evaluate(async input => (
+      await chrome.runtime.sendMessage({
+        channel: 'oneweb.send-to-openlist',
+        version: 1,
+        type: 'SEND_TO_OPENLIST_CONNECT',
+        preparation: input.preparation,
+        token: input.token,
+      })
+    ).result, { preparation: prepared.value, token }) as { ok: boolean }
+    expect(connected.ok).toBe(true)
+  }
+
+  await connect('openlist', 'OpenList', openListFixture.origin, openListFixture.token)
+  const openListTools = await panel.evaluate(async () => (
+    await chrome.runtime.sendMessage({
+      channel: 'oneweb.send-to-openlist',
+      version: 1,
+      type: 'SEND_TO_OPENLIST_DISCOVER_TOOLS',
+      destinationPath: '/openlist-target',
+    })
+  ).result) as { ok: boolean, value: string[] }
+  expect(openListTools).toEqual({ ok: true, value: openListFixture.tools })
+
+  await connect('alist', 'AList', alistFixture.origin, alistFixture.token)
+  const alistTools = await panel.evaluate(async () => (
+    await chrome.runtime.sendMessage({
+      channel: 'oneweb.send-to-openlist',
+      version: 1,
+      type: 'SEND_TO_OPENLIST_DISCOVER_TOOLS',
+      destinationPath: '/alist-target',
+    })
+  ).result) as { ok: boolean, value: string[] }
+  expect(alistTools).toEqual({ ok: true, value: alistFixture.tools })
+  const alistSubmission = await panel.evaluate(async (tool) => {
+    const url = 'https://cdn.example/alist-compatible?sig=a%2Bb'
+    let hash = 0xCBF29CE484222325n
+    for (let index = 0; index < url.length; index += 1) {
+      hash ^= BigInt(url.charCodeAt(index))
+      hash = BigInt.asUintN(64, hash * 0x100000001B3n)
+    }
+    return (await chrome.runtime.sendMessage({
+      channel: 'oneweb.send-to-openlist',
+      version: 1,
+      type: 'SEND_TO_OPENLIST_SUBMIT',
+      candidates: [{
+        schemaVersion: 1,
+        id: `resource-${hash.toString(16).padStart(16, '0')}`,
+        url,
+        kind: 'https',
+        source: 'manual',
+      }],
+      destinationPath: '/alist-target',
+      tool,
+    })).result
+  }, alistFixture.tools[0]) as { ok: boolean, value: { entries: Array<{ status: string }> } }
+  expect(alistSubmission).toMatchObject({ ok: true, value: { entries: [{ status: 'accepted' }] } })
+  const alistTasks = await panel.evaluate(async () => (
+    await chrome.runtime.sendMessage({
+      channel: 'oneweb.send-to-openlist',
+      version: 1,
+      type: 'SEND_TO_OPENLIST_LIST_TASKS',
+      list: 'undone',
+    })
+  ).result) as { ok: boolean, value: { tasks: Array<{ id: string }> } }
+  expect(alistTasks).toMatchObject({ ok: true, value: { tasks: [{ id: 'task-1' }] } })
+  expect(openListFixture.requests.toolPaths).toEqual(['/openlist-target'])
+  expect(alistFixture.requests.toolPaths).toEqual(['/alist-target'])
+  expect(new Set(openListFixture.requests.clientIds).size).toBe(1)
+  expect(new Set(alistFixture.requests.clientIds).size).toBe(1)
+  expect(alistFixture.requests).toMatchObject({ me: 1, tools: 1, add: 1, undone: 1, unauthorized: 0 })
+
+  const secretKeys = await panel.evaluate(async tokens => Object.entries(await chrome.storage.local.get(null))
+    .filter(([, value]) => tokens.some(token => JSON.stringify(value).includes(token)))
+    .map(([key]) => key)
+    .sort(), [openListFixture.token, alistFixture.token])
+  expect(secretKeys).toEqual([
+    'oneweb.send-to-openlist.secret.v1.alist',
+    'oneweb.send-to-openlist.secret.v1.openlist',
+  ])
+  expect(await card.textContent()).not.toContain(openListFixture.token)
+  expect(await card.textContent()).not.toContain(alistFixture.token)
+  expect(panel.url()).not.toContain(openListFixture.token)
+  expect(panel.url()).not.toContain(alistFixture.token)
+
+  expect(await panel.evaluate(origin => chrome.permissions.remove({ origins: [`${origin}/*`] }), openListFixture.origin)).toBe(true)
+  await expect.poll(() => panel.evaluate(async () => (
+    await chrome.storage.local.get('oneweb.send-to-openlist.secret.v1.openlist')
+  )['oneweb.send-to-openlist.secret.v1.openlist'])).toBeUndefined()
+  const stillConnected = await panel.evaluate(async () => (
+    await chrome.runtime.sendMessage({ channel: 'oneweb.send-to-openlist', version: 1, type: 'SEND_TO_OPENLIST_STATUS' })
+  ).result) as { value: { phase: string, profile: { id: string } } }
+  expect(stillConnected.value).toMatchObject({ phase: 'connected', profile: { id: 'alist' } })
+  expect(await panel.evaluate(async () => Boolean((
+    await chrome.storage.local.get('oneweb.send-to-openlist.secret.v1.alist')
+  )['oneweb.send-to-openlist.secret.v1.alist']))).toBe(true)
+
+  const resourcePage = await context.newPage()
+  await resourcePage.goto(`${new URL(moduleFixtures.primary.manifestUrl).origin}/journal-page-toolbox-poc`, {
+    waitUntil: 'domcontentloaded',
+  })
+  await resourcePage.bringToFront()
+  const discoveryBeforeRestart = await panel.evaluate(async () => (
+    await chrome.runtime.sendMessage({
+      channel: 'oneweb.send-to-openlist',
+      version: 1,
+      type: 'SEND_TO_OPENLIST_SCAN_CURRENT_PAGE',
+    })
+  ).result) as { ok: boolean, value: { candidates: unknown[] } }
+  expect(discoveryBeforeRestart.ok).toBe(true)
+  expect(discoveryBeforeRestart.value.candidates.length).toBeGreaterThan(0)
+
+  const callsBeforeRestart = {
+    openlist: { ...openListFixture.requests },
+    alist: { ...alistFixture.requests },
+  }
+  let [background] = context.serviceWorkers()
+  if (!background)
+    background = await context.waitForEvent('serviceworker')
+  const workerEvent = context.waitForEvent('serviceworker')
+  await background.evaluate(() => chrome.runtime.reload()).catch(() => undefined)
+  await panel.close().catch(() => undefined)
+  await workerEvent
+  panel = await openManagementPanel(context, extensionId)
+  const restarted = await panel.evaluate(async () => (
+    await chrome.runtime.sendMessage({ channel: 'oneweb.send-to-openlist', version: 1, type: 'SEND_TO_OPENLIST_STATUS' })
+  ).result) as { value: { phase: string, profile: { id: string }, hasStoredToken: boolean } }
+  expect(restarted.value).toMatchObject({ phase: 'disconnected', profile: { id: 'alist' }, hasStoredToken: true })
+  const discoveryAfterRestart = await panel.evaluate(async () => (
+    await chrome.runtime.sendMessage({ channel: 'oneweb.send-to-openlist', version: 1, type: 'SEND_TO_OPENLIST_DISCOVERY_STATUS' })
+  ).result) as { value: { candidates: unknown[] } }
+  expect(discoveryAfterRestart.value.candidates).toEqual([])
+  expect(openListFixture.requests.me).toBe(callsBeforeRestart.openlist.me)
+  expect(openListFixture.requests.tools).toBe(callsBeforeRestart.openlist.tools)
+  expect(alistFixture.requests.me).toBe(callsBeforeRestart.alist.me)
+  expect(alistFixture.requests.tools).toBe(callsBeforeRestart.alist.tools)
+
+  const restartedCard = panel.locator(`[data-testid="module-card"][data-module-id="${moduleId}"]`)
+  await restartedCard.getByTestId('module-toggle').click()
+  await expect.poll(() => panel.evaluate(async tokens => JSON.stringify(await chrome.storage.local.get(null))
+    .includes(tokens[0]) || JSON.stringify(await chrome.storage.local.get(null)).includes(tokens[1]), [openListFixture.token, alistFixture.token]))
+    .toBe(false)
+  const profileCollection = await panel.evaluate(async () => (
+    await chrome.storage.local.get('oneweb.send-to-openlist.profiles.v1')
+  )['oneweb.send-to-openlist.profiles.v1']) as { profiles: Array<{ id: string }> }
+  expect(profileCollection.profiles.map(profile => profile.id)).toEqual(['openlist', 'alist'])
+
+  const protectedAfter = Object.fromEntries(await Promise.all(protectedIds.map(async id => [
+    id,
+    await readStoredModule(panel, id),
+  ])))
+  expect(protectedAfter).toEqual(protectedBefore)
+  expect(await readModuleLocalState(panel, localIsolationIds)).toEqual(localBefore)
+  expect(moduleFixtures.primary.requests.count).toBe(0)
+  expect(moduleFixtures.secondary.requests.count).toBe(0)
 })
 
 test('Page Toolbox injects one authenticated empty-tool runtime at an approved exact origin', async ({

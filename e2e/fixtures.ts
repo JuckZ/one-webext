@@ -34,6 +34,7 @@ const sdkRuntimeFiles = new Set([
 export const extensionPath = process.env.EXTENSION_PATH || path.join(currentDir, '../artifacts/chromium')
 
 interface ExtensionFixtures {
+  alistFixture: OpenListFixture
   bookmarkProbeFixture: BookmarkProbeFixture
   clashControllerFixture: ClashControllerFixture
   context: BrowserContext
@@ -44,6 +45,27 @@ interface ExtensionFixtures {
     secondary: RemoteModuleFixture
     storagePeer: RemoteModuleFixture
   }
+  openListFixture: OpenListFixture
+}
+
+export interface OpenListFixture {
+  kind: 'openlist' | 'alist'
+  origin: string
+  token: string
+  requests: {
+    me: number
+    tools: number
+    add: number
+    activeAdds: number
+    maximumAdds: number
+    unauthorized: number
+    undone: number
+    done: number
+    cancel: number
+    clientIds: string[]
+    toolPaths: Array<string | null>
+  }
+  tools: string[]
 }
 
 export interface ClashControllerFixture {
@@ -212,6 +234,10 @@ function renderPageToolboxFixture() {
     '<body contenteditable="false"><input id="toolbox-password" type="password" value="page-local-secret">',
     '<input id="toolbox-disabled-password" type="password" disabled value="disabled-secret">',
     '<p id="toolbox-copy-target">untrusted &lt;script&gt;page text&lt;/script&gt;</p>',
+    '<a id="send-openlist-signed" href="https://cdn.example/resource?sig=a%2Bb&amp;part=1#drop" title="&lt;img data-discovery-xss src=x&gt;">signed resource</a>',
+    '<a id="send-openlist-local" href="http://127.1/private">local resource</a>',
+    '<a id="send-openlist-script" href="javascript:void(0)">rejected script</a>',
+    '<video id="send-openlist-video" src="https://cdn.example/video.mp4"></video>',
     '<iframe id="toolbox-child-frame" src="/journal-page-toolbox-frame"></iframe>',
     '<script>',
     'window.__pageToolboxFixture={copyBlocks:0,contextBlocks:0,selectionBlocks:0};',
@@ -774,8 +800,136 @@ async function startClashControllerFixture() {
   }
 }
 
+async function startOpenListFixture(kind: OpenListFixture['kind'] = 'openlist') {
+  const token = `oneweb-e2e-${kind}-token`
+  const tools = kind === 'openlist' ? ['SimpleHttp', 'qBittorrent'] : ['aria2', '115 Cloud']
+  const requests = {
+    me: 0,
+    tools: 0,
+    add: 0,
+    activeAdds: 0,
+    maximumAdds: 0,
+    unauthorized: 0,
+    undone: 0,
+    done: 0,
+    cancel: 0,
+    clientIds: [] as string[],
+    toolPaths: [] as Array<string | null>,
+  }
+  const undoneTasks: Array<Record<string, unknown>> = []
+  const doneTasks: Array<Record<string, unknown>> = []
+  const server = createServer((request, response) => {
+    const url = new URL(request.url || '/', 'http://127.0.0.1')
+    const reply = (code: number, data: unknown, status = 200) => response.writeHead(status, {
+      'cache-control': 'no-store',
+      'content-type': 'application/json',
+    }).end(JSON.stringify({ code, message: code === 200 ? 'success' : 'failed', data }))
+    const clientId = request.headers['client-id']
+    if (typeof clientId !== 'string' || !/^oneweb-[0-9a-f]{8}$/u.test(clientId)) {
+      reply(400, null, 400)
+      return
+    }
+    requests.clientIds.push(clientId)
+    if (request.method === 'GET' && url.pathname === '/api/public/offline_download_tools') {
+      requests.tools += 1
+      requests.toolPaths.push(url.searchParams.get('path'))
+      if (request.headers.authorization !== undefined) {
+        response.writeHead(400).end()
+        return
+      }
+      reply(200, tools)
+      return
+    }
+    if (request.headers.authorization !== token) {
+      requests.unauthorized += 1
+      reply(401, null, 401)
+      return
+    }
+    if (request.method === 'GET' && url.pathname === '/api/me') {
+      requests.me += 1
+      reply(200, { id: 1, username: 'fixture' })
+      return
+    }
+    if (request.method === 'GET' && url.pathname === '/api/task/offline_download/undone') {
+      requests.undone += 1
+      reply(200, undoneTasks)
+      return
+    }
+    if (request.method === 'GET' && url.pathname === '/api/task/offline_download/done') {
+      requests.done += 1
+      reply(200, doneTasks)
+      return
+    }
+    if (request.method === 'POST' && url.pathname === '/api/task/offline_download/cancel') {
+      requests.cancel += 1
+      const taskId = url.searchParams.get('tid')
+      const index = undoneTasks.findIndex(task => task.id === taskId)
+      if (index < 0) {
+        reply(404, null)
+        return
+      }
+      const [task] = undoneTasks.splice(index, 1)
+      doneTasks.push({ ...task, state: 4, status: 'cancelled' })
+      reply(200, null)
+      return
+    }
+    if (request.method !== 'POST' || url.pathname !== '/api/fs/add_offline_download') {
+      response.writeHead(404).end()
+      return
+    }
+    requests.add += 1
+    requests.activeAdds += 1
+    requests.maximumAdds = Math.max(requests.maximumAdds, requests.activeAdds)
+    const chunks: Buffer[] = []
+    request.on('data', chunk => chunks.push(Buffer.from(chunk)))
+    request.on('end', () => {
+      requests.activeAdds -= 1
+      let body: Record<string, unknown> | null = null
+      try {
+        body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string, unknown>
+      }
+      catch {}
+      if (!body
+        || !Array.isArray(body.urls)
+        || body.urls.length !== 1
+        || typeof body.urls[0] !== 'string'
+        || typeof body.path !== 'string'
+        || !tools.includes(String(body.tool))
+        || body.delete_policy !== 'delete_on_upload_succeed') {
+        reply(400, null, 400)
+        return
+      }
+      const task = {
+        id: `task-${requests.add}`,
+        name: `<img data-openlist-xss src=x> task ${requests.add}`,
+        state: 1,
+        status: 'running',
+        progress: 0,
+        total_bytes: 0,
+        error: '',
+      }
+      undoneTasks.push(task)
+      reply(200, { tasks: [{ id: task.id }] })
+    })
+  })
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(0, '127.0.0.1', resolve)
+  })
+  const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
+  return {
+    fixture: { kind, origin, token, requests, tools } satisfies OpenListFixture,
+    close: () => {
+      server.closeAllConnections()
+      return new Promise<void>((resolve, reject) => {
+        server.close(error => error ? reject(error) : resolve())
+      })
+    },
+  }
+}
+
 export const test = base.extend<ExtensionFixtures>({
-  context: async ({ bookmarkProbeFixture, clashControllerFixture, headless, moduleFixtures }, use) => {
+  context: async ({ alistFixture, bookmarkProbeFixture, clashControllerFixture, headless, moduleFixtures, openListFixture }, use) => {
     const closeRepoLensFixture = await startRepoLensFixture(moduleFixtures)
     const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), 'oneweb-e2e-'))
     const launchOptions = {
@@ -804,6 +958,8 @@ export const test = base.extend<ExtensionFixtures>({
       .map(fixture => `${new URL(fixture.manifestUrl).origin}/*`)
     fixtureOrigins.push(`${bookmarkProbeFixture.origin}/*`)
     fixtureOrigins.push(`${clashControllerFixture.origin}/*`)
+    fixtureOrigins.push(`${openListFixture.origin}/*`)
+    fixtureOrigins.push(`${alistFixture.origin}/*`)
     for (const key of ['active_permissions', 'granted_permissions']) {
       const origins = extensionSettings[key].explicit_host as string[]
       for (const fixtureOrigin of fixtureOrigins) {
@@ -828,6 +984,17 @@ export const test = base.extend<ExtensionFixtures>({
   },
   // Playwright requires fixture dependency arguments to use object destructuring.
   // eslint-disable-next-line no-empty-pattern
+  alistFixture: async ({}, use) => {
+    const fixture = await startOpenListFixture('alist')
+    try {
+      await use(fixture.fixture)
+    }
+    finally {
+      await fixture.close()
+    }
+  },
+  // Playwright requires fixture dependency arguments to use object destructuring.
+  // eslint-disable-next-line no-empty-pattern
   bookmarkProbeFixture: async ({}, use) => {
     const fixture = await startBookmarkProbeFixture()
     try {
@@ -841,6 +1008,17 @@ export const test = base.extend<ExtensionFixtures>({
   // eslint-disable-next-line no-empty-pattern
   clashControllerFixture: async ({}, use) => {
     const fixture = await startClashControllerFixture()
+    try {
+      await use(fixture.fixture)
+    }
+    finally {
+      await fixture.close()
+    }
+  },
+  // Playwright requires fixture dependency arguments to use object destructuring.
+  // eslint-disable-next-line no-empty-pattern
+  openListFixture: async ({}, use) => {
+    const fixture = await startOpenListFixture('openlist')
     try {
       await use(fixture.fixture)
     }

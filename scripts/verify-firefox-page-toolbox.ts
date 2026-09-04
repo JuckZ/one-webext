@@ -12,6 +12,7 @@ import fs from 'fs-extra'
 const EXTENSION_ID = 'one-web@juckz.local'
 const EXTENSION_SIDEBAR_IDENTITY = EXTENSION_ID.split('@')[0]
 const PAGE_TOOLBOX_ID = 'dev.oneweb.page-toolbox'
+const SEND_TO_OPENLIST_ID = 'dev.oneweb.send-to-openlist'
 const COMMAND_TIMEOUT_MS = 30_000
 const STARTUP_TIMEOUT_MS = 45_000
 const POLL_INTERVAL_MS = 100
@@ -115,6 +116,7 @@ export function validateFirefoxArtifactManifest(value: unknown) {
   const optionalOrigins = manifest.optional_host_permissions
   if (!Array.isArray(permissions)
     || permissions.includes('<all_urls>')
+    || !permissions.includes('contextMenus')
     || !Array.isArray(optionalOrigins)
     || !optionalOrigins.includes('http://*/*')
     || !optionalOrigins.includes('https://*/*')) {
@@ -333,6 +335,7 @@ function renderPageToolboxFixture(label: string) {
     '</title></head><body contenteditable="false">',
     '<input id="toolbox-password" type="password" value="page-local-secret">',
     '<p id="toolbox-copy-target">untrusted &lt;script&gt;page text&lt;/script&gt;</p>',
+    '<a id="send-openlist-resource" href="https://cdn.example/firefox?sig=a%2Bb#drop" title="&lt;img data-send-xss src=x&gt;">resource</a>',
     '<iframe id="toolbox-child-frame" src="/frame"></iframe>',
     '<script>',
     'window.__pageToolboxFixture={copyBlocks:0};',
@@ -342,8 +345,67 @@ function renderPageToolboxFixture(label: string) {
 }
 
 async function startFixtures() {
+  const sendToken = 'oneweb-firefox-openlist-token'
+  const sendRequests = { me: 0, tools: 0, add: 0, undone: 0, unauthorized: 0 }
+  const sendTasks: Array<Record<string, unknown>> = []
   const server = createServer((request, response) => {
     const url = new URL(request.url || '/', 'http://127.0.0.1')
+    const reply = (code: number, data: unknown, status = 200) => response.writeHead(status, {
+      'cache-control': 'no-store',
+      'content-type': 'application/json; charset=utf-8',
+    }).end(JSON.stringify({ code, message: code === 200 ? 'success' : 'failed', data }))
+    if (url.pathname.startsWith('/api/') && !/^oneweb-[0-9a-f]{8}$/u.test(String(request.headers['client-id'] || ''))) {
+      reply(400, null, 400)
+      return
+    }
+    if (url.pathname === '/api/public/offline_download_tools') {
+      sendRequests.tools += 1
+      reply(200, ['FirefoxTool'])
+      return
+    }
+    if (url.pathname.startsWith('/api/')) {
+      if (request.headers.authorization !== sendToken) {
+        sendRequests.unauthorized += 1
+        reply(401, null, 401)
+        return
+      }
+      if (request.method === 'GET' && url.pathname === '/api/me') {
+        sendRequests.me += 1
+        reply(200, { id: 1, username: 'firefox-fixture' })
+        return
+      }
+      if (request.method === 'GET' && url.pathname === '/api/task/offline_download/undone') {
+        sendRequests.undone += 1
+        reply(200, sendTasks)
+        return
+      }
+      if (request.method === 'POST' && url.pathname === '/api/fs/add_offline_download') {
+        const chunks: Buffer[] = []
+        request.on('data', chunk => chunks.push(Buffer.from(chunk)))
+        request.on('end', () => {
+          let body: JsonRecord | null = null
+          try {
+            body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as JsonRecord
+          }
+          catch {}
+          if (!body
+            || !Array.isArray(body.urls)
+            || body.urls.length !== 1
+            || body.tool !== 'FirefoxTool'
+            || body.delete_policy !== 'delete_on_upload_succeed') {
+            reply(400, null, 400)
+            return
+          }
+          sendRequests.add += 1
+          const task = { id: `firefox-task-${sendRequests.add}`, name: '<img data-firefox-xss src=x>', state: 1, status: 'running', progress: 0, total_bytes: 0, error: '' }
+          sendTasks.push(task)
+          reply(200, { tasks: [{ id: task.id }] })
+        })
+        return
+      }
+      reply(404, null, 404)
+      return
+    }
     if (url.pathname === '/frame') {
       response.writeHead(200, { 'cache-control': 'no-store', 'content-type': 'text/html; charset=utf-8' })
         .end('<!doctype html><body><input id="frame-password" type="password" value="frame-secret"></body>')
@@ -366,6 +428,8 @@ async function startFixtures() {
     betaOrigin: 'http://localhost',
     close: () => new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())),
     server,
+    sendRequests,
+    sendToken,
   }
 }
 
@@ -507,6 +571,22 @@ async function grantExactOrigin(client: MarionetteClient, originPattern: string)
   await setContext(client, 'content')
 }
 
+async function removeExactOrigin(client: MarionetteClient, originPattern: string) {
+  await setContext(client, 'chrome')
+  const result = asRecord(await executeAsync(client, [
+    'const pattern=arguments[0],done=arguments[arguments.length-1];',
+    '(async()=>{',
+    'const {ExtensionPermissions}=ChromeUtils.importESModule("resource://gre/modules/ExtensionPermissions.sys.mjs");',
+    `const policy=WebExtensionPolicy.getByID(${JSON.stringify(EXTENSION_ID)});`,
+    'if(!policy?.extension)throw new Error("temporary OneWeb policy missing");',
+    'await ExtensionPermissions.remove(policy.id,{permissions:[],origins:[pattern]},policy.extension);',
+    'return {ok:true,activeOrigins:policy.extension.activePermissions.origins};',
+    '})().then(done,error=>done({ok:false,error:String(error)}));',
+  ].join(''), [originPattern]), 'Firefox exact-origin removal')
+  assert(result.ok === true, `Firefox exact-origin removal failed: ${String(result.error)}`)
+  await setContext(client, 'content')
+}
+
 async function activateAndApprove(client: MarionetteClient, driverHandle: string, origin: string) {
   await switchWindow(client, driverHandle)
   const result = asRecord(await executeAsync(client, [
@@ -584,11 +664,28 @@ async function toggleBuiltin(client: MarionetteClient, driverHandle: string, exp
   }, COMMAND_TIMEOUT_MS, `Page Toolbox enabled=${expected}`, value => value === String(expected))
 }
 
+async function toggleSendToOpenList(client: MarionetteClient, driverHandle: string, expected: boolean) {
+  await switchWindow(client, driverHandle)
+  await execute(client, [
+    `const card=document.querySelector('[data-testid="module-card"][data-module-id="${SEND_TO_OPENLIST_ID}"]');`,
+    'const toggle=card?.querySelector("[data-testid=module-toggle]");',
+    'if(!toggle)throw new Error("Send to OpenList toggle missing");',
+    `if(toggle.getAttribute('aria-checked')!==${JSON.stringify(String(expected))})toggle.click();`,
+    'return true;',
+  ].join(''))
+  await pollUntil(async () => {
+    await switchWindow(client, driverHandle)
+    return execute(client, `return document.querySelector('[data-testid="module-card"][data-module-id="${SEND_TO_OPENLIST_ID}"] [data-testid="module-toggle"]')?.getAttribute('aria-checked')`)
+  }, COMMAND_TIMEOUT_MS, `Send to OpenList enabled=${expected}`, value => value === String(expected))
+}
+
 async function runFirefoxScenario(
   client: MarionetteClient,
   extensionOrigin: string,
   alphaOrigin: string,
   betaOrigin: string,
+  sendToken: string,
+  sendRequests: { me: number, tools: number, add: number, undone: number, unauthorized: number },
 ) {
   await client.command('WebDriver:NewSession', { capabilities: { alwaysMatch: {} } })
   const handles = await client.command('WebDriver:GetWindowHandles')
@@ -733,7 +830,65 @@ async function runFirefoxScenario(
     return { permissions: clone.permissions, storage, unrelatedRecords }
   }
   assert(JSON.stringify(normalize(finalState)) === JSON.stringify(normalize(baseline)), 'Firefox Page Toolbox changed unrelated permissions, Registry records or module state')
-  process.stdout.write('Firefox Page Toolbox gate: 1/1 passed (two origins, three tools, sidebar + closed Shadow, disable + revoke, isolation)\n')
+
+  await switchWindow(client, driverHandle)
+  const sendProtectedBefore = await executeAsync(client, [
+    'const ids=arguments[0],done=arguments[arguments.length-1];',
+    '(async()=>{const records=(await browser.storage.local.get("oneweb.modules.v1"))["oneweb.modules.v1"]||[];',
+    'return Object.fromEntries(ids.map(id=>[id,records.find(record=>record.manifest?.id===id)||null]));',
+    '})().then(done,error=>done({error:String(error)}));',
+  ].join(''), [protectedIds])
+  await toggleSendToOpenList(client, driverHandle, true)
+  await grantExactOrigin(client, `${alphaOrigin}/*`)
+  await switchWindow(client, driverHandle)
+  const sendResult = asRecord(await executeAsync(client, [
+    'const input=arguments[0],done=arguments[arguments.length-1];',
+    '(async()=>{',
+    'const send=async message=>(await browser.runtime.sendMessage(message)).result;',
+    'const base={channel:"oneweb.send-to-openlist",version:1};',
+    'const profile={schemaVersion:1,id:"firefox",label:"Firefox fixture",controllerOrigin:input.origin};',
+    'const prepared=await send({...base,type:"SEND_TO_OPENLIST_PREPARE",profile});',
+    'if(!prepared?.ok)throw new Error(`prepare failed: ${JSON.stringify(prepared)}`);',
+    'const connected=await send({...base,type:"SEND_TO_OPENLIST_CONNECT",preparation:prepared.value,token:input.token});',
+    'if(!connected?.ok)throw new Error(`connect failed: ${JSON.stringify(connected)}`);',
+    'const tools=await send({...base,type:"SEND_TO_OPENLIST_DISCOVER_TOOLS",destinationPath:"/firefox"});',
+    'const url="https://cdn.example/firefox-resource?sig=a%2Bb";let hash=0xCBF29CE484222325n;',
+    'for(let index=0;index<url.length;index++){hash^=BigInt(url.charCodeAt(index));hash=BigInt.asUintN(64,hash*0x100000001B3n)}',
+    'const candidate={schemaVersion:1,id:`resource-${hash.toString(16).padStart(16,"0")}`,url,kind:"https",source:"manual"};',
+    'const submitted=await send({...base,type:"SEND_TO_OPENLIST_SUBMIT",candidates:[candidate],destinationPath:"/firefox",tool:tools.value[0]});',
+    'const tasks=await send({...base,type:"SEND_TO_OPENLIST_LIST_TASKS",list:"undone"});',
+    'const tabs=await browser.tabs.query({});const tab=tabs.find(candidate=>candidate.url?.startsWith(`${input.origin}/`));',
+    'if(!tab)throw new Error("Firefox resource page missing");await browser.tabs.update(tab.id,{active:true});',
+    'const scanned=await send({...base,type:"SEND_TO_OPENLIST_SCAN_CURRENT_PAGE"});',
+    'const storage=await browser.storage.local.get(null);',
+    'const secretKeys=Object.entries(storage).filter(([,value])=>JSON.stringify(value).includes(input.token)).map(([key])=>key);',
+    'const disconnected=await send({...base,type:"SEND_TO_OPENLIST_DISCONNECT"});',
+    'const after=await browser.storage.local.get(null);',
+    'return {connected,tools,submitted,tasks,scanned,secretKeys,secretRemains:JSON.stringify(after).includes(input.token),disconnected};',
+    '})().then(value=>done({ok:true,value}),error=>done({ok:false,error:String(error)}));',
+  ].join(''), [{ origin: alphaOrigin, token: sendToken }]), 'Firefox Send to OpenList gate')
+  assert(sendResult.ok === true, `Firefox Send to OpenList failed: ${String(sendResult.error)}`)
+  const sendValue = asRecord(sendResult.value, 'Firefox Send to OpenList result')
+  assert((sendValue.connected as JsonRecord)?.ok === true, 'Firefox Send to OpenList did not connect')
+  assert((sendValue.tools as JsonRecord)?.ok === true, 'Firefox Send to OpenList did not discover tools')
+  assert((sendValue.submitted as JsonRecord)?.ok === true, 'Firefox Send to OpenList did not submit one resource')
+  assert((sendValue.tasks as JsonRecord)?.ok === true, 'Firefox Send to OpenList did not list tasks')
+  assert((sendValue.scanned as JsonRecord)?.ok === true, 'Firefox Send to OpenList did not scan the top frame')
+  assert(JSON.stringify(sendValue.scanned).includes('https://cdn.example/firefox?sig=a%2Bb'), 'Firefox scan lost the signed URL')
+  assert(JSON.stringify(sendValue.secretKeys) === JSON.stringify(['oneweb.send-to-openlist.secret.v1.firefox']), 'Firefox token escaped its dedicated record')
+  assert(sendValue.secretRemains === false, 'Firefox disconnect retained the token')
+  await toggleSendToOpenList(client, driverHandle, false)
+  await removeExactOrigin(client, `${alphaOrigin}/*`)
+  await switchWindow(client, driverHandle)
+  const sendProtectedAfter = await executeAsync(client, [
+    'const ids=arguments[0],done=arguments[arguments.length-1];',
+    '(async()=>{const records=(await browser.storage.local.get("oneweb.modules.v1"))["oneweb.modules.v1"]||[];',
+    'return Object.fromEntries(ids.map(id=>[id,records.find(record=>record.manifest?.id===id)||null]));',
+    '})().then(done,error=>done({error:String(error)}));',
+  ].join(''), [protectedIds])
+  assert(JSON.stringify(sendProtectedAfter) === JSON.stringify(sendProtectedBefore), 'Firefox Send to OpenList changed protected module records')
+  assert(sendRequests.me === 1 && sendRequests.tools === 1 && sendRequests.add === 1 && sendRequests.undone === 1 && sendRequests.unauthorized === 0, `Firefox fixed connector requests are invalid: ${JSON.stringify(sendRequests)}`)
+  process.stdout.write('Firefox packaged-builtin gates: 2/2 passed (Page Toolbox isolation + Send to OpenList fixed connector/discovery/lifecycle)\n')
 }
 
 async function main() {
@@ -780,7 +935,14 @@ async function main() {
     assert(extensionOrigin, 'Temporary OneWeb extension origin is missing')
     marionette = new MarionetteClient()
     await marionette.connect(marionettePort)
-    await runFirefoxScenario(marionette, extensionOrigin, fixtures.alphaOrigin, fixtures.betaOrigin)
+    await runFirefoxScenario(
+      marionette,
+      extensionOrigin,
+      fixtures.alphaOrigin,
+      fixtures.betaOrigin,
+      fixtures.sendToken,
+      fixtures.sendRequests,
+    )
   }
   catch (error) {
     const detail = log.tail ? `\nFirefox output:\n${log.tail}` : ''
