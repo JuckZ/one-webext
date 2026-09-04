@@ -37,6 +37,10 @@ export type SendToOpenListRequest =
   | RequestBase & { type: 'SEND_TO_OPENLIST_LIST_TASKS', list: 'undone' | 'done' }
   | RequestBase & { type: 'SEND_TO_OPENLIST_PREPARE_CANCEL', taskId: string }
   | RequestBase & { type: 'SEND_TO_OPENLIST_CONFIRM_CANCEL', token: string }
+  | RequestBase & { type: 'SEND_TO_OPENLIST_DISCOVERY_STATUS' }
+  | RequestBase & { type: 'SEND_TO_OPENLIST_CAPTURE_CURRENT_PAGE' }
+  | RequestBase & { type: 'SEND_TO_OPENLIST_SCAN_CURRENT_PAGE' }
+  | RequestBase & { type: 'SEND_TO_OPENLIST_CLEAR_DISCOVERY' }
   | RequestBase & { type: 'SEND_TO_OPENLIST_DISCONNECT' }
   | RequestBase & { type: 'SEND_TO_OPENLIST_DELETE_PROFILE' }
 
@@ -80,6 +84,10 @@ export function isSendToOpenListRequest(value: unknown): value is SendToOpenList
           && !(value.token as string).includes('\n')))
   }
   if (value.type === 'SEND_TO_OPENLIST_STATUS'
+    || value.type === 'SEND_TO_OPENLIST_DISCOVERY_STATUS'
+    || value.type === 'SEND_TO_OPENLIST_CAPTURE_CURRENT_PAGE'
+    || value.type === 'SEND_TO_OPENLIST_SCAN_CURRENT_PAGE'
+    || value.type === 'SEND_TO_OPENLIST_CLEAR_DISCOVERY'
     || value.type === 'SEND_TO_OPENLIST_DISCONNECT'
     || value.type === 'SEND_TO_OPENLIST_DELETE_PROFILE') {
     return Object.keys(value).length === 3

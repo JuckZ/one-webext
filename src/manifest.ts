@@ -44,6 +44,7 @@ export async function getManifest() {
     },
     permissions: [
       'activeTab',
+      'contextMenus',
       'scripting',
       'storage',
       'tabs',

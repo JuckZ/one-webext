@@ -125,6 +125,38 @@ export class SendToOpenListClient {
     })
   }
 
+  discoveryStatus() {
+    return this.request({
+      channel: SEND_TO_OPENLIST_CHANNEL,
+      version: SEND_TO_OPENLIST_PROTOCOL_VERSION,
+      type: 'SEND_TO_OPENLIST_DISCOVERY_STATUS',
+    })
+  }
+
+  captureCurrentPage() {
+    return this.request({
+      channel: SEND_TO_OPENLIST_CHANNEL,
+      version: SEND_TO_OPENLIST_PROTOCOL_VERSION,
+      type: 'SEND_TO_OPENLIST_CAPTURE_CURRENT_PAGE',
+    })
+  }
+
+  scanCurrentPage() {
+    return this.request({
+      channel: SEND_TO_OPENLIST_CHANNEL,
+      version: SEND_TO_OPENLIST_PROTOCOL_VERSION,
+      type: 'SEND_TO_OPENLIST_SCAN_CURRENT_PAGE',
+    })
+  }
+
+  clearDiscovery() {
+    return this.request({
+      channel: SEND_TO_OPENLIST_CHANNEL,
+      version: SEND_TO_OPENLIST_PROTOCOL_VERSION,
+      type: 'SEND_TO_OPENLIST_CLEAR_DISCOVERY',
+    })
+  }
+
   disconnect() {
     return this.request({
       channel: SEND_TO_OPENLIST_CHANNEL,

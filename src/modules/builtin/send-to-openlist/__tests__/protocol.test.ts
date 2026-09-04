@@ -16,7 +16,7 @@ const profile = {
 const base = { channel: SEND_TO_OPENLIST_CHANNEL, version: SEND_TO_OPENLIST_PROTOCOL_VERSION } as const
 
 describe('send to OpenList trusted protocol', () => {
-  it('accepts only narrow management messages and rejects escape hatches', () => {
+  it('accepts only the fourteen narrow messages and rejects escape hatches', () => {
     expect(isSendToOpenListRequest({ ...base, type: 'SEND_TO_OPENLIST_PREPARE', profile })).toBe(true)
     expect(isSendToOpenListRequest({ ...base, type: 'SEND_TO_OPENLIST_STATUS' })).toBe(true)
     expect(isSendToOpenListRequest({ ...base, type: 'SEND_TO_OPENLIST_DISCOVER_TOOLS', destinationPath: '/' })).toBe(true)
@@ -28,6 +28,10 @@ describe('send to OpenList trusted protocol', () => {
       type: 'SEND_TO_OPENLIST_CONFIRM_CANCEL',
       token: 'cancel-review-token-123456789012',
     })).toBe(true)
+    expect(isSendToOpenListRequest({ ...base, type: 'SEND_TO_OPENLIST_DISCOVERY_STATUS' })).toBe(true)
+    expect(isSendToOpenListRequest({ ...base, type: 'SEND_TO_OPENLIST_CAPTURE_CURRENT_PAGE' })).toBe(true)
+    expect(isSendToOpenListRequest({ ...base, type: 'SEND_TO_OPENLIST_SCAN_CURRENT_PAGE' })).toBe(true)
+    expect(isSendToOpenListRequest({ ...base, type: 'SEND_TO_OPENLIST_CLEAR_DISCOVERY' })).toBe(true)
     expect(isSendToOpenListRequest({ ...base, type: 'SEND_TO_OPENLIST_DISCONNECT' })).toBe(true)
     expect(isSendToOpenListRequest({ ...base, type: 'SEND_TO_OPENLIST_DELETE_PROFILE' })).toBe(true)
     expect(isSendToOpenListRequest({ ...base, type: 'SEND_TO_OPENLIST_FETCH', url: 'https://evil.example' })).toBe(false)

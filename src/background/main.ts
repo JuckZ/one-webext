@@ -36,7 +36,13 @@ import {
   createSendToOpenListProfileStore,
   createSendToOpenListResponse,
   isSendToOpenListRequest,
+  SendToOpenListContextMenuController,
+  type SendToOpenListContextMenuInfo,
+  type SendToOpenListContextMenusBoundary,
   SendToOpenListController,
+  SendToOpenListDiscoveryController,
+  type SendToOpenListDiscoveryScriptingBoundary,
+  type SendToOpenListDiscoveryTab,
 } from '~/modules/builtin/send-to-openlist'
 import { type ContextSnapshot, createDefaultContextBroker } from '~/modules/context-broker'
 import {
@@ -112,6 +118,15 @@ const sendToOpenListController = new SendToOpenListController({
   store: createSendToOpenListProfileStore(browser.storage.local),
   originInUse: originPattern => builtinOriginUsage.usedByAnother('send-to-openlist', originPattern),
 })
+const sendToOpenListDiscovery = new SendToOpenListDiscoveryController({
+  registry: defaultModuleRegistry,
+  tabs: browser.tabs,
+  scripting: (browser as unknown as { scripting: SendToOpenListDiscoveryScriptingBoundary }).scripting,
+})
+const sendToOpenListContextMenus = new SendToOpenListContextMenuController(
+  browser.contextMenus as unknown as SendToOpenListContextMenusBoundary,
+  sendToOpenListDiscovery,
+)
 builtinOriginUsage.register('bookmark-doctor', originPattern => bookmarkDoctorController.usesOriginPattern(originPattern))
 builtinOriginUsage.register('clash-control', originPattern => clashControlController.usesOriginPattern(originPattern))
 builtinOriginUsage.register('page-toolbox', originPattern => pageToolboxController.usesOriginPattern(originPattern))
@@ -127,6 +142,8 @@ const moduleManager = new ModuleManager(defaultModuleRegistry, moduleInstaller, 
     await clashControlController.handleInstalledRecordChanged(record)
     pageToolboxController.handleInstalledRecordChanged(record)
     await sendToOpenListController.handleInstalledRecordChanged(record)
+    sendToOpenListDiscovery.handleInstalledRecordChanged(record)
+    await sendToOpenListContextMenus.syncRecord(record)
   },
   onInstalledRecordRemoved: record => storageModuleAdapter.removeInstalledRecord(record.manifest.id),
 })
@@ -134,11 +151,13 @@ const extensionBaseUrl = browser.runtime.getURL('/')
 
 void initializeDefaultModuleRegistry()
   .then(async () => {
+    const sendRecord = await defaultModuleRegistry.get('dev.oneweb.send-to-openlist')
     await Promise.all([
       browserJournalController.startup(),
       clashControlController.startup(),
       pageToolboxController.startup(),
       sendToOpenListController.startup(),
+      sendToOpenListContextMenus.initialize(Boolean(sendRecord?.enabled)),
     ])
   })
   .catch((error) => {
@@ -215,6 +234,30 @@ browser.runtime.onMessage.addListener((message: unknown, sender: Runtime.Message
     }
     if (message.type === 'SEND_TO_OPENLIST_CONFIRM_CANCEL') {
       return sendToOpenListController.confirmCancel(message.token).then(result => createSendToOpenListResponse(
+        message.type,
+        result,
+      ))
+    }
+    if (message.type === 'SEND_TO_OPENLIST_DISCOVERY_STATUS') {
+      return sendToOpenListDiscovery.status().then(result => createSendToOpenListResponse(
+        message.type,
+        result,
+      ))
+    }
+    if (message.type === 'SEND_TO_OPENLIST_CAPTURE_CURRENT_PAGE') {
+      return sendToOpenListDiscovery.captureCurrentPage().then(result => createSendToOpenListResponse(
+        message.type,
+        result,
+      ))
+    }
+    if (message.type === 'SEND_TO_OPENLIST_SCAN_CURRENT_PAGE') {
+      return sendToOpenListDiscovery.scanCurrentPage().then(result => createSendToOpenListResponse(
+        message.type,
+        result,
+      ))
+    }
+    if (message.type === 'SEND_TO_OPENLIST_CLEAR_DISCOVERY') {
+      return sendToOpenListDiscovery.clear().then(result => createSendToOpenListResponse(
         message.type,
         result,
       ))
@@ -474,6 +517,13 @@ browser.runtime.onMessage.addListener((message: unknown, sender: Runtime.Message
 
 browser.runtime.onConnect.addListener((port) => {
   pageToolboxController.acceptPort(port as unknown as PageToolboxHostPort)
+})
+
+browser.contextMenus.onClicked.addListener((info, tab) => {
+  void sendToOpenListContextMenus.handleClick(
+    info as unknown as SendToOpenListContextMenuInfo,
+    tab as SendToOpenListDiscoveryTab | undefined,
+  )
 })
 
 browser.tabs.onActivated.addListener(async () => {

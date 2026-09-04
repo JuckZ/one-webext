@@ -54,6 +54,7 @@ import type {
   SendToOpenListCancelReviewPlanV1,
   SendToOpenListConnectionPreparationV1,
   SendToOpenListConnectionSnapshotV1,
+  SendToOpenListDiscoverySnapshotV1,
   SendToOpenListSubmissionStateV1,
   SendToOpenListTaskSnapshotV1,
 } from '~/modules/builtin/send-to-openlist'
@@ -183,6 +184,10 @@ export interface SendToOpenListActions {
   listTasks: (_list: 'undone' | 'done') => Promise<unknown>
   prepareCancel: (_taskId: string) => Promise<unknown>
   confirmCancel: (_token: string) => Promise<unknown>
+  discoveryStatus: () => Promise<unknown>
+  captureCurrentPage: () => Promise<unknown>
+  scanCurrentPage: () => Promise<unknown>
+  clearDiscovery: () => Promise<unknown>
   disconnect: () => Promise<unknown>
   deleteProfile: () => Promise<unknown>
 }
@@ -820,6 +825,18 @@ export class ModuleManagementView {
       this.sendActionButton('send-openlist-delete-profile', '删除 Profile'),
     )
     section.append(connectionActions)
+
+    const discoveryActions = element('div', 'send-openlist-actions')
+    discoveryActions.append(
+      this.sendActionButton('send-openlist-capture-page', '加入当前页'),
+      this.sendActionButton('send-openlist-scan-page', '扫描当前页链接与媒体'),
+      this.sendActionButton('send-openlist-refresh-discovery', '读取右键候选'),
+      this.sendActionButton('send-openlist-clear-discovery', '清空浏览器候选'),
+    )
+    section.append(
+      element('p', 'send-openlist-note', '当前页与扫描仅在点击后临时读取活动标签页顶层；右键入口只收集候选，绝不自动提交。'),
+      discoveryActions,
+    )
 
     const manual = document.createElement('textarea')
     manual.value = this.sendManualText
@@ -2039,6 +2056,18 @@ export class ModuleManagementView {
     else if (button.dataset.action === 'send-openlist-parse') {
       this.parseSendToOpenListCandidates(button.closest('.send-openlist-panel'))
     }
+    else if (button.dataset.action === 'send-openlist-capture-page') {
+      void this.updateSendToOpenListDiscovery('capture')
+    }
+    else if (button.dataset.action === 'send-openlist-scan-page') {
+      void this.updateSendToOpenListDiscovery('scan')
+    }
+    else if (button.dataset.action === 'send-openlist-refresh-discovery') {
+      void this.updateSendToOpenListDiscovery('status')
+    }
+    else if (button.dataset.action === 'send-openlist-clear-discovery') {
+      void this.clearSendToOpenListDiscovery()
+    }
     else if (button.dataset.action === 'send-openlist-tools') {
       void this.discoverSendToOpenListTools(button.closest('.send-openlist-panel'))
     }
@@ -2331,6 +2360,85 @@ export class ModuleManagementView {
     }
     this.sendSubmission = null
     this.render()
+  }
+
+  private applySendToOpenListDiscovery(snapshot: SendToOpenListDiscoverySnapshotV1) {
+    const manualCandidates = this.sendCandidates.filter(candidate => candidate.source === 'manual')
+    const merged = mergePresentedResourceCandidates(manualCandidates, snapshot.candidates)
+    if (!merged.ok)
+      return false
+    this.sendCandidates = merged.value
+    this.sendSelected.clear()
+    for (const candidate of this.sendCandidates) {
+      if (this.sendSelected.size >= 50)
+        break
+      if (!presentResourceCandidate(candidate).blocked)
+        this.sendSelected.add(candidate.id)
+    }
+    this.sendSubmission = null
+    return true
+  }
+
+  private async updateSendToOpenListDiscovery(action: 'status' | 'capture' | 'scan') {
+    if (!this.sendToOpenList)
+      return
+    this.sendBusy = true
+    this.render()
+    try {
+      const request = action === 'capture'
+        ? this.sendToOpenList.captureCurrentPage()
+        : action === 'scan'
+          ? this.sendToOpenList.scanCurrentPage()
+          : this.sendToOpenList.discoveryStatus()
+      const result = readSendActionResult<SendToOpenListDiscoverySnapshotV1>(await request)
+      if (!result || !result.ok) {
+        this.setSendToOpenListMessage(this.sendToOpenListError(result?.reason || 'invalid-response'), true)
+        return
+      }
+      if (!this.applySendToOpenListDiscovery(result.value)) {
+        this.setSendToOpenListMessage(this.sendToOpenListError('quota-exceeded'), true)
+        return
+      }
+      const label = action === 'scan' ? '临时扫描' : action === 'capture' ? '当前页收集' : '右键候选同步'
+      this.setSendToOpenListMessage(
+        `${label}完成：${result.value.candidates.length} 项浏览器候选，${result.value.rejectedCount} 项不合规地址已拒绝；仅展示，尚未提交。`,
+      )
+    }
+    catch (error) {
+      this.setSendToOpenListMessage(this.sendToOpenListError(this.sendToOpenListClientFailure(error)), true)
+    }
+    finally {
+      this.sendBusy = false
+      this.render()
+    }
+  }
+
+  private async clearSendToOpenListDiscovery() {
+    if (!this.sendToOpenList)
+      return
+    this.sendBusy = true
+    this.render()
+    try {
+      const result = readSendActionResult<SendToOpenListDiscoverySnapshotV1>(await this.sendToOpenList.clearDiscovery())
+      if (!result || !result.ok) {
+        this.setSendToOpenListMessage(this.sendToOpenListError(result?.reason || 'invalid-response'), true)
+        return
+      }
+      this.sendCandidates = this.sendCandidates.filter(candidate => candidate.source === 'manual')
+      for (const id of [...this.sendSelected]) {
+        if (!this.sendCandidates.some(candidate => candidate.id === id))
+          this.sendSelected.delete(id)
+      }
+      this.sendSubmission = null
+      this.setSendToOpenListMessage('浏览器候选已清空；手动输入候选保持不变。')
+    }
+    catch (error) {
+      this.setSendToOpenListMessage(this.sendToOpenListError(this.sendToOpenListClientFailure(error)), true)
+    }
+    finally {
+      this.sendBusy = false
+      this.render()
+    }
   }
 
   private async discoverSendToOpenListTools(panel: Element | null) {

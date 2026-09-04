@@ -506,6 +506,22 @@ describe('module management view', () => {
       listTasks: vi.fn(async () => ({ ok: false, reason: 'network-failed' })),
       prepareCancel: vi.fn(async () => ({ ok: false, reason: 'operation-not-allowed' })),
       confirmCancel: vi.fn(async () => ({ ok: false, reason: 'operation-not-allowed' })),
+      discoveryStatus: vi.fn(async () => ({
+        ok: true,
+        value: { schemaVersion: 1, generation: 1, updatedAt: null, candidates: [], rejectedCount: 0 },
+      })),
+      captureCurrentPage: vi.fn(async () => ({
+        ok: true,
+        value: { schemaVersion: 1, generation: 2, updatedAt: null, candidates: [], rejectedCount: 0 },
+      })),
+      scanCurrentPage: vi.fn(async () => ({
+        ok: true,
+        value: { schemaVersion: 1, generation: 2, updatedAt: null, candidates: [], rejectedCount: 0 },
+      })),
+      clearDiscovery: vi.fn(async () => ({
+        ok: true,
+        value: { schemaVersion: 1, generation: 3, updatedAt: null, candidates: [], rejectedCount: 0 },
+      })),
       disconnect: vi.fn(async () => ({ ok: true, value: {} })),
       deleteProfile: vi.fn(async () => ({ ok: true, value: {} })),
     }
