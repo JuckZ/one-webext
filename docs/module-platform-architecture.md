@@ -1464,6 +1464,66 @@ a non-recursive Chromium packaging command. The accepted source and artifact has
 [`phase-8d-release-candidate.md`](checkpoints/phase-8d-release-candidate.md); publication remains a
 separately authorized action.
 
+Phase 9 is governed by [`ADR-0022`](adr/0022-send-to-openlist-resource-inbox.md) and starts only on a
+post-RC branch. Send to OpenList is a packaged builtin resource inbox, not an OpenList/AList storage
+driver and not a remote-module capability. Its trust flow is:
+
+```text
+explicit paste / future user-gesture discovery
+  -> pure bounded candidate normalization and SSRF classification
+  -> trusted user review of URL, destination and server-returned tool
+  -> fixed exact-origin background connector
+  -> OpenList/AList one-item offline-download API
+  -> server-owned task state
+```
+
+The connector derives the service origin, method, endpoint, authentication and AList `Client-Id`
+from trusted profile/session state. Candidate and page data cannot override them. Profiles are
+versioned non-secret arrays; tokens use a separate background-only local namespace. The extension
+does not transport file bytes, page Cookie/Referer/header state or private provider API traffic.
+
+HTTP(S) candidate serialization drops only the fragment and preserves the signed path/query bytes.
+Explicit local-use hostnames and IP literals are ineligible for submission; ordinary DNS names,
+redirects and opaque peer links remain labelled server-side egress risks. Browser validation cannot
+prevent DNS rebinding or an OpenList/AList-side redirect, so deployment network policy remains the
+real SSRF boundary.
+
+The current upstream handlers accept a URL array but can leave earlier tasks committed when a later
+item fails. OneWeb therefore sends exactly one URL per request with at most two concurrent writes,
+records write-after-dispatch transport failure as outcome unknown and never retries automatically.
+Task lists are fetched explicitly from the server without invented pagination or a local persistent
+queue. Phase 9A contains only pure contracts; connector, UI and browser discovery remain 9B–9D.
+
+Phase 9A completed those pure boundaries under `src/modules/builtin/send-to-openlist/` without
+registering the builtin or importing the code into a production bundle. Immutable profile,
+candidate, authority, fixed command/result, response projection, two-write submission and reviewed
+cancellation models are executable specifications only. Phase 9B is the first phase allowed to add
+a trusted connector, exact-origin permission coordination or a background-only token record.
+
+Phase 9B and 9C turn that contract into one disabled-by-default packaged builtin with an
+installation-bound profile/token store, fixed trusted connector and smallest manual product surface.
+The controller derives origin, raw `Authorization`, AList-compatible non-secret `Client-Id`, method,
+endpoint and body. Adds remain one URL each with concurrency two and no retry; task reads are manual,
+and cancellation revalidates a single-use review against a fresh undone snapshot.
+
+Phase 9D adds browser discovery without widening the connector. Fixed context menus and explicit
+current-page/scan buttons populate a transient review inbox. The scanner is packaged code invoked
+through `activeTab + scripting` for frame `0`, accepts no selector or program from the page, and has
+no resident registration. The management view cannot select local-use candidates and labels public
+or opaque destinations as dependent on OpenList/AList outbound policy. Discovery never implies
+submission, and the page still cannot supply credentials, headers, methods or API paths.
+
+Phase 9E closes the resource-inbox MVP with one shared, fixed connector exercised against distinct
+pinned OpenList and AList fixtures. Versioned profile storage supports up to eight independent
+exact-origin entries and dedicated per-profile token records while exposing only one active service
+in the MVP UI. Profile switching, exact-origin revocation, disable, protected-builtin removal refusal,
+installation-identity replacement and worker restart invalidate only the corresponding authority;
+none may silently retry or change another profile or module. Complete Chromium and Firefox gates
+cover the fixed discovery/connector surface, host-derived AList `Client-Id`, secret non-disclosure,
+worker-memory loss and unchanged Registry, permissions, module namespaces and remote-frame state.
+The browser-side local-use classification remains a review and obvious-target guard, not a substitute
+for OpenList/AList deployment egress policy.
+
 ### Future — Distribution ecosystem
 
 - Add an optional curated registry without removing direct URL installation.

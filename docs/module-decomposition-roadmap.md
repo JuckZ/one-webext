@@ -2000,3 +2000,95 @@ their exact SHA-256 values are recorded in the checkpoint. RepoLens passes **34/
 release, GitHub Release creation and browser-store upload require separate authorization. Annotated
 tag `v0.1.0-rc.1` points exactly to the accepted source commit; the later evidence-only documentation
 commit does not change packaged code.
+
+## 8. Phase 9 — Send to OpenList resource inbox
+
+Phase 9 is post-RC work and cannot rewrite `v0.1.0-rc.1`, its artifacts or its acceptance evidence.
+[`ADR-0022`](adr/0022-send-to-openlist-resource-inbox.md) keeps the maintenance surface narrow: the
+packaged builtin discovers and reviews resource addresses while OpenList/AList owns downloading,
+upload/transfer, storage drivers and tasks. One common fixed connector handles only audited API
+differences; the browser never moves file bytes or borrows page credentials.
+
+### Phase 9A — API compatibility audit, product contract and threat model — Complete
+
+- Pin current OpenList/AList releases, source commits and official documentation.
+- Fix builtin, profile/secret separation, candidate, command/result/error, quota, SSRF and lifecycle
+  contracts.
+- Permit only browser-independent pure validators, normalizers, classifiers and reducers with unit
+  tests. Do not change manifest permissions or execute any connector request.
+
+Evidence and exit criteria live in
+[`phase-9a-send-to-openlist.md`](checkpoints/phase-9a-send-to-openlist.md).
+
+Completed on 2026-09-03 with 65 browser-independent contract tests and 623/623 full unit tests.
+Profile/secret separation, signed-URL preservation, explicit local-use blocking, canonical fixed
+commands/results, response quotas, two-write first-terminal-wins and snapshot-bound single-use task
+cancellation are fixed without changing the manifest, Registry, background or UI.
+
+### Phase 9B — Trusted connector and single-profile PoC — Complete
+
+Add exact-origin approval, trusted-background local secret storage and a fixed OpenList/AList adapter
+for identity, path-aware tool discovery and one-item adds. Validate response and redirect limits,
+partial/ambiguous write handling, concurrency two and lifecycle cleanup against local protocol
+fixtures. Only manual-input background capability is in scope.
+
+Completed on 2026-09-04 with a disabled-by-default packaged builtin, exact-origin preparation,
+installation-bound profile/token records, a fixed three-endpoint connector, dynamic tool review and
+one-URL submissions capped at two concurrent writes. The full gate passed 643/643 unit tests,
+reproducible 20-file SDK output, a 28-file production Chromium build and 25/25 Chromium E2E tests.
+No task UI, browser discovery, polling, retry or generic network capability was added.
+
+### Phase 9C — Manual submission and task-management MVP — Complete
+
+Add one-active-profile configuration, manual paste, destination/tool review, up to 50 per-item
+results, explicit undone/done refresh and reviewed cancellation. Do not add polling, retry, persistent
+queues or background automation.
+
+Completed on 2026-09-04 with a text-only management surface, explicit profile/token connection,
+manual candidate review, dynamic path/tool review, independent per-item submission outcomes and
+user-triggered task refresh. Cancellation is a separate single-use review bound to the latest
+normalized undone snapshot and is revalidated before the fixed connector write. The complete gate
+passed **651/651 unit tests**, reproducible **20-file SDK** output, a **28-file production Chromium
+build** and **26/26 Chromium E2E**. No polling, automatic retry, persistent queue or browser resource
+discovery was added. Phase 9D is next.
+
+### Phase 9D — Browser resource entry points — Complete
+
+Add explicit-user-gesture context menus for link/media/current page and a temporary top-frame scan
+using existing `activeTab + scripting`. Normalize/deduplicate candidates, enforce quotas and text
+safety, and present the SSRF classification. Do not add a resident content script, static
+`<all_urls>`, site cookies/headers, XHR interception or private-site APIs.
+
+Completed on 2026-09-04 with three fixed context-menu entries whose enabled state follows the
+builtin, explicit current-page capture and a packaged temporary top-frame scan. All routes merge
+into one bounded in-memory review inbox; local-use candidates remain visible but unselectable, while
+invalid schemes are rejected and signed query bytes are preserved. The complete gate passed
+**660/660 unit tests**, reproducible **20-file SDK** output, a **28-file production Chromium build**
+and **27/27 Chromium E2E**. The manifest adds only `contextMenus`; it retains `activeTab + scripting`,
+no static `<all_urls>` and no new content script. Phase 9E is next.
+
+### Phase 9E — Cross-browser, service and module-isolation gate — Complete
+
+Prove Chromium/Firefox behavior, pinned OpenList/AList compatibility fixtures, permission and worker
+lifecycle, secret non-disclosure, two-profile/two-origin isolation, and unchanged RepoLens, Bookmark
+Doctor, Clash Control, Browser Journal, Page Toolbox and remote-module state. Use real failures to
+decide whether the MVP closes; do not expand into provider-specific adapters.
+
+Completed on 2026-09-04. One shared connector now passes distinct pinned OpenList and AList fixture
+behavior, including host-derived AList `Client-Id` handling and dynamic service-returned tool lists.
+The versioned profile collection retains up to eight independent exact-origin profiles while the MVP
+activates one; profile deletion, origin revocation, disable, reinstall and worker restart obey the
+documented profile/secret and transient-authority boundaries without changing another service or
+module. The final gate passed **665/665 unit tests**, reproducible **20-file SDK** output, a
+**28-file Chromium production build**, **28/28 Chromium E2E**, a **28-file Firefox production
+identity build**, Firefox manifest validation with **0 errors / 0 notices / 0 warnings**, and
+**2/2 real Firefox packaged-builtin gates**. RepoLens remained unchanged and passed **34/34 tests**
+plus its offline **14-file vendor** gate; the accepted `typedCapabilities.storage.module` artifact
+drift remains explicit. Phase 9 is complete. Any further product or release work requires a new,
+explicit decision rather than an implicit continuation of this phase.
+
+The post-Phase-9 read-only review, dependency-ordered commit proposal, immutable RC1/new-RC2 rule
+and real OpenList/AList acceptance prerequisites are recorded in
+[`post-phase-9-release-convergence.md`](checkpoints/post-phase-9-release-convergence.md). This is a
+release checkpoint, not Phase 10; staging, committing, tagging, real-service access and publication
+all remain separately authorized actions.
