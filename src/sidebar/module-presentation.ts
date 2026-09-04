@@ -18,6 +18,7 @@ const capabilityLabels: Record<ModuleCapabilityId, string> = {
   'bookmarks.read': '只读访问书签',
   'bookmarks.write': '审查后修改书签',
   'clash.status.read': '读取本地 Clash 状态',
+  'resources.openlist.submit': '提交资源到 OpenList/AList',
   'clipboard.write': '写入剪贴板',
   'downloads.create': '创建下载',
   'notifications.show': '显示通知',

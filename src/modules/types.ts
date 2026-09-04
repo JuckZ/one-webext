@@ -30,6 +30,7 @@ export const builtinModuleCapabilityIds = [
   'bookmarks.read',
   'bookmarks.write',
   'clash.status.read',
+  'resources.openlist.submit',
 ] as const
 export const moduleCapabilityIds = [
   ...remoteModuleCapabilityIds,
