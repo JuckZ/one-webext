@@ -17,6 +17,11 @@ import {
   createPageToolboxSeed,
   type PageToolboxControlSnapshotV1,
 } from '~/modules/builtin/page-toolbox'
+import {
+  createSendToOpenListSeed,
+  type ResourceCandidateV1,
+  type SendToOpenListConnectionSnapshotV1,
+} from '~/modules/builtin/send-to-openlist'
 import type { ModuleInstallReview } from '~/modules/installer'
 import type {
   ModuleInstallCancelManagementResult,
@@ -40,6 +45,7 @@ import {
   type ModuleManagementActions,
   ModuleManagementView,
   type PageToolboxActions,
+  type SendToOpenListActions,
 } from '../module-management-view'
 
 function moduleRecord(source: 'seeded' | 'user', name = 'RepoLens'): InstalledModuleRecord {
@@ -107,6 +113,20 @@ function pageToolboxRecord(enabled = true): InstalledModuleRecord {
     update: null,
     installedAt: '2026-08-31T00:00:00.000Z',
     updatedAt: '2026-08-31T00:00:00.000Z',
+  }
+}
+
+function sendToOpenListRecord(): InstalledModuleRecord {
+  return {
+    manifest: createSendToOpenListSeed().manifest,
+    enabled: true,
+    source: 'seeded',
+    grantedContexts: [],
+    grantedContextFields: {},
+    grantedCapabilities: [],
+    update: null,
+    installedAt: '2026-09-04T00:00:00.000Z',
+    updatedAt: '2026-09-04T00:00:00.000Z',
   }
 }
 
@@ -444,6 +464,84 @@ function createClient(records: InstalledModuleRecord[]) {
 }
 
 describe('module management view', () => {
+  it('keeps Send to OpenList profile review, manual candidates and submission explicit', async () => {
+    const profile = { schemaVersion: 1 as const, id: 'primary', label: 'Home', controllerOrigin: 'https://openlist.example' }
+    const preparation = {
+      token: 'preparation-token-not-rendered',
+      profile,
+      originPattern: 'https://openlist.example/*',
+      generation: 2,
+      expiresAt: '2026-09-04T00:02:00.000Z',
+    }
+    let connection: SendToOpenListConnectionSnapshotV1 = {
+      phase: 'disconnected' as const,
+      generation: 1,
+      profile: null,
+      hasStoredToken: false,
+    }
+    const actions: SendToOpenListActions = {
+      status: vi.fn(async () => ({ ok: true, value: connection })),
+      prepare: vi.fn(async () => ({ ok: true, value: preparation })),
+      connect: vi.fn(async () => {
+        connection = {
+          phase: 'connected',
+          generation: 2,
+          profile,
+          hasStoredToken: true,
+          connectedAt: '2026-09-04T00:00:00.000Z',
+        }
+        return { ok: true, value: connection }
+      }),
+      discoverTools: vi.fn(async () => ({ ok: true, value: ['<img data-tool-xss src=x>', 'SimpleHttp'] })),
+      submit: vi.fn(async (candidates: readonly ResourceCandidateV1[]) => ({
+        ok: true,
+        value: {
+          schemaVersion: 1,
+          authority: { moduleId: 'dev.oneweb.send-to-openlist', profileId: 'primary', controllerOrigin: profile.controllerOrigin, generation: 2 },
+          status: 'completed',
+          entries: candidates.map(candidate => ({ candidate, status: 'accepted', taskId: null })),
+          inFlight: 0,
+        },
+      })),
+      listTasks: vi.fn(async () => ({ ok: false, reason: 'network-failed' })),
+      prepareCancel: vi.fn(async () => ({ ok: false, reason: 'operation-not-allowed' })),
+      confirmCancel: vi.fn(async () => ({ ok: false, reason: 'operation-not-allowed' })),
+      disconnect: vi.fn(async () => ({ ok: true, value: {} })),
+      deleteProfile: vi.fn(async () => ({ ok: true, value: {} })),
+    }
+    vi.spyOn(window, 'prompt').mockReturnValue('secret-not-rendered')
+    const root = createRoot()
+    const view = new ModuleManagementView({ root, client: createClient([sendToOpenListRecord()]), sendToOpenList: actions })
+    await view.refresh()
+
+    root.querySelector<HTMLInputElement>('[data-testid="send-openlist-profile-label"]')!.value = 'Home'
+    root.querySelector<HTMLInputElement>('[data-testid="send-openlist-origin"]')!.value = profile.controllerOrigin
+    root.querySelector<HTMLButtonElement>('[data-testid="send-openlist-prepare"]')!.click()
+    await vi.waitFor(() => expect(root.querySelector('[data-testid="send-openlist-connection-review"]')).not.toBeNull())
+    expect(root.innerHTML).not.toContain(preparation.token)
+    root.querySelector<HTMLButtonElement>('[data-testid="send-openlist-connect"]')!.click()
+    await vi.waitFor(() => expect(root.querySelector('[data-testid="send-openlist-manual-input"]')).not.toBeNull())
+    expect(root.innerHTML).not.toContain('secret-not-rendered')
+
+    root.querySelector<HTMLTextAreaElement>('[data-testid="send-openlist-manual-input"]')!.value = [
+      'https://cdn.example/file?sig=a%2Bb#drop',
+      'https://cdn.example/file?sig=a%2Bb#other',
+    ].join('\n')
+    root.querySelector<HTMLButtonElement>('[data-testid="send-openlist-parse"]')!.click()
+    expect(root.querySelectorAll('[data-send-candidate-id]')).toHaveLength(1)
+    expect(root.textContent).toContain('https://cdn.example/file?sig=a%2Bb')
+    root.querySelector<HTMLButtonElement>('[data-testid="send-openlist-tools"]')!.click()
+    await vi.waitFor(() => expect(root.querySelector('[data-testid="send-openlist-tool"]')).not.toBeNull())
+    expect(root.querySelector('img[data-tool-xss]')).toBeNull()
+    root.querySelector<HTMLButtonElement>('[data-testid="send-openlist-submit"]')!.click()
+    await vi.waitFor(() => expect(actions.submit).toHaveBeenCalledOnce())
+    expect(actions.submit).toHaveBeenCalledWith(
+      [expect.objectContaining({ url: 'https://cdn.example/file?sig=a%2Bb' })],
+      '/',
+      '<img data-tool-xss src=x>',
+    )
+  })
+
   it('keeps Page Toolbox exact-origin preparation and confirmation as separate trusted UI actions', async () => {
     const pageToolbox = createPageToolboxActions()
     vi.mocked(pageToolbox.status)

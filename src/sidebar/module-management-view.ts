@@ -49,6 +49,19 @@ import {
   PAGE_TOOLBOX_MODULE_ID,
   PageToolboxClientError,
 } from '~/modules/builtin/page-toolbox'
+import type {
+  ResourceCandidateV1,
+  SendToOpenListCancelReviewPlanV1,
+  SendToOpenListConnectionPreparationV1,
+  SendToOpenListConnectionSnapshotV1,
+  SendToOpenListSubmissionStateV1,
+  SendToOpenListTaskSnapshotV1,
+} from '~/modules/builtin/send-to-openlist'
+import {
+  SEND_TO_OPENLIST_ENTRY_ID,
+  SEND_TO_OPENLIST_MODULE_ID,
+  SendToOpenListClientError,
+} from '~/modules/builtin/send-to-openlist'
 import type { ModuleInstallReview, ModuleInstallSelection } from '~/modules/installer'
 import {
   type ModuleInstallCancelManagementResult,
@@ -99,6 +112,13 @@ import {
   presentPageToolboxControlState,
   reducePageToolboxControlState,
 } from './page-toolbox-presentation'
+import {
+  mergePresentedResourceCandidates,
+  parseManualResourceCandidates,
+  presentResourceCandidate,
+  presentSubmissionStatus,
+  presentTaskSnapshot,
+} from './send-to-openlist-presentation'
 
 export interface BookmarkDoctorActions {
   authorize: () => Promise<BookmarkDoctorResult>
@@ -145,6 +165,28 @@ export interface PageToolboxActions {
   revoke: () => Promise<PageToolboxManagementResult>
 }
 
+export interface SendToOpenListActions {
+  prepare: (_profile: {
+    schemaVersion: 1
+    id: string
+    label: string
+    controllerOrigin: string
+  }) => Promise<unknown>
+  connect: (_preparation: SendToOpenListConnectionPreparationV1, _token?: string) => Promise<unknown>
+  status: () => Promise<unknown>
+  discoverTools: (_destinationPath: string) => Promise<unknown>
+  submit: (
+    _candidates: readonly ResourceCandidateV1[],
+    _destinationPath: string,
+    _tool: string,
+  ) => Promise<unknown>
+  listTasks: (_list: 'undone' | 'done') => Promise<unknown>
+  prepareCancel: (_taskId: string) => Promise<unknown>
+  confirmCancel: (_token: string) => Promise<unknown>
+  disconnect: () => Promise<unknown>
+  deleteProfile: () => Promise<unknown>
+}
+
 export interface ModuleManagementActions {
   list: () => Promise<InstalledModuleRecord[]>
   setEnabled: (_moduleId: string, _enabled: boolean) => Promise<ModuleSetEnabledManagementResult>
@@ -172,6 +214,7 @@ export interface ModuleManagementViewOptions {
   bookmarkDoctor?: BookmarkDoctorActions
   clashControl?: ClashControlActions
   pageToolbox?: PageToolboxActions
+  sendToOpenList?: SendToOpenListActions
   now?: () => string
   onRecordChanged?: (_record: InstalledModuleRecord) => void
   onRecordRemoved?: (_record: InstalledModuleRecord) => void
@@ -255,12 +298,28 @@ function appendUpdateChangeList(parent: HTMLElement, label: string, values: stri
   parent.append(group)
 }
 
+type SendActionResult<Value> =
+  | { ok: true, value: Value }
+  | { ok: false, reason: string }
+
+function readSendActionResult<Value>(input: unknown): SendActionResult<Value> | null {
+  if (!input || typeof input !== 'object' || Array.isArray(input))
+    return null
+  const record = input as Record<string, unknown>
+  if (record.ok === true && Object.hasOwn(record, 'value'))
+    return { ok: true, value: record.value as Value }
+  if (record.ok === false && typeof record.reason === 'string')
+    return { ok: false, reason: record.reason }
+  return null
+}
+
 export class ModuleManagementView {
   private readonly client: ModuleManagementActions
   private readonly browserJournal?: BrowserJournalActions
   private readonly bookmarkDoctor?: BookmarkDoctorActions
   private readonly clashControl?: ClashControlActions
   private readonly pageToolbox?: PageToolboxActions
+  private readonly sendToOpenList?: SendToOpenListActions
   private readonly now: () => string
   private readonly onRecordChanged?: ModuleManagementViewOptions['onRecordChanged']
   private readonly onRecordRemoved?: ModuleManagementViewOptions['onRecordRemoved']
@@ -320,13 +379,29 @@ export class ModuleManagementView {
   private pageToolboxPreparation: PageToolboxSitePreparationV1 | null = null
   private pageToolboxMessage: { message: string, error: boolean } | null = null
   private pageToolboxRequestSequence = 0
+  private sendConnection: SendToOpenListConnectionSnapshotV1 | null = null
+  private sendPreparation: SendToOpenListConnectionPreparationV1 | null = null
+  private sendCandidates: readonly ResourceCandidateV1[] = []
+  private readonly sendSelected = new Set<string>()
+  private sendTools: readonly string[] = []
+  private sendTaskSnapshots: Partial<Record<'undone' | 'done', SendToOpenListTaskSnapshotV1>> = {}
+  private sendCancelPlan: SendToOpenListCancelReviewPlanV1 | null = null
+  private sendSubmission: SendToOpenListSubmissionStateV1 | null = null
+  private sendProfileOrigin = ''
+  private sendProfileLabel = 'OpenList/AList'
+  private sendDestinationPath = '/'
+  private sendManualText = ''
+  private sendSelectedTool = ''
+  private sendMessage: { message: string, error: boolean } | null = null
+  private sendBusy = false
 
-  constructor({ root, client, browserJournal, bookmarkDoctor, clashControl, pageToolbox, now = () => new Date().toISOString(), onRecordChanged, onRecordRemoved, onRecordInstalled }: ModuleManagementViewOptions) {
+  constructor({ root, client, browserJournal, bookmarkDoctor, clashControl, pageToolbox, sendToOpenList, now = () => new Date().toISOString(), onRecordChanged, onRecordRemoved, onRecordInstalled }: ModuleManagementViewOptions) {
     this.client = client
     this.browserJournal = browserJournal
     this.bookmarkDoctor = bookmarkDoctor
     this.clashControl = clashControl
     this.pageToolbox = pageToolbox
+    this.sendToOpenList = sendToOpenList
     this.now = now
     this.onRecordChanged = onRecordChanged
     this.onRecordRemoved = onRecordRemoved
@@ -378,6 +453,7 @@ export class ModuleManagementView {
         this.refreshBookmarkWorkspaceState(),
         this.refreshClashStatus(),
         this.refreshPageToolboxControl(),
+        this.refreshSendToOpenListStatus(),
       ])
       this.render()
       this.setFeedback(`已安装 ${this.records.length} 个模块`)
@@ -656,10 +732,210 @@ export class ModuleManagementView {
       card.append(this.renderClashControlSection(record))
     if (record.manifest.runtime === 'builtin' && record.manifest.entry_id === PAGE_TOOLBOX_ENTRY_ID)
       card.append(this.renderPageToolboxSection())
+    if (record.manifest.runtime === 'builtin' && record.manifest.entry_id === SEND_TO_OPENLIST_ENTRY_ID)
+      card.append(this.renderSendToOpenListSection(record))
     if (isRemotelyUpdateable(record))
       card.append(this.renderUpdateSection(record))
     card.append(footer)
     return card
+  }
+
+  private sendActionButton(action: string, label: string, disabled = this.sendBusy) {
+    const button = element('button', 'secondary-button send-openlist-action', label)
+    button.type = 'button'
+    button.dataset.action = action
+    button.dataset.moduleId = SEND_TO_OPENLIST_MODULE_ID
+    button.dataset.testid = action
+    button.disabled = disabled
+    return button
+  }
+
+  private renderSendToOpenListSection(record: InstalledModuleRecord) {
+    const section = element('section', 'send-openlist-panel')
+    section.dataset.testid = 'send-to-openlist'
+    section.append(
+      element('h3', 'send-openlist-title', 'Send to OpenList · 资源收件箱'),
+      element('p', 'send-openlist-note', '浏览器只提交你审查过的 URL；不会转交 Cookie、Referer、自定义请求头或文件字节。'),
+    )
+    if (this.sendMessage) {
+      const message = element('p', 'send-openlist-message', this.sendMessage.message)
+      message.dataset.state = this.sendMessage.error ? 'error' : 'ready'
+      message.dataset.testid = 'send-openlist-message'
+      section.append(message)
+    }
+    if (!record.enabled) {
+      section.append(element('p', 'send-openlist-note', '模块已停用；不会连接服务或提交资源。'))
+      return section
+    }
+
+    const connection = this.sendConnection
+    if (!connection || connection.phase === 'disconnected' || connection.phase === 'error') {
+      const label = document.createElement('input')
+      label.type = 'text'
+      label.value = this.sendProfileLabel
+      label.dataset.testid = 'send-openlist-profile-label'
+      const origin = document.createElement('input')
+      origin.type = 'url'
+      origin.value = this.sendProfileOrigin || connection?.profile?.controllerOrigin || ''
+      origin.placeholder = 'https://openlist.example'
+      origin.dataset.testid = 'send-openlist-origin'
+      const form = element('div', 'send-openlist-form')
+      form.append(
+        this.sendField('服务名称', label),
+        this.sendField('OpenList/AList exact origin', origin),
+        element('p', 'send-openlist-note', 'Token 将保存在浏览器本地专用记录中，并非 OS 级密钥保险箱；建议使用最小权限账号。'),
+        this.sendActionButton('send-openlist-prepare', '审查精确服务地址'),
+      )
+      section.append(form)
+      if (connection?.phase === 'error')
+        section.append(element('p', 'send-openlist-note', `最近诊断：${connection.errorCode}`))
+      return section
+    }
+
+    if (connection.phase === 'preparing' && this.sendPreparation) {
+      const review = element('div', 'send-openlist-review')
+      review.dataset.testid = 'send-openlist-connection-review'
+      review.append(
+        element('strong', '', '确认连接边界'),
+        element('code', '', this.sendPreparation.profile.controllerOrigin),
+        element('p', 'send-openlist-note', `仅申请 ${this.sendPreparation.originPattern}；Token 只交给受信后台。`),
+        this.sendActionButton('send-openlist-connect', '授权并验证 Token'),
+        this.sendActionButton('send-openlist-disconnect', '取消'),
+      )
+      section.append(review)
+      return section
+    }
+
+    if (connection.phase !== 'connected')
+      return section
+
+    section.append(element(
+      'p',
+      'send-openlist-note',
+      `已连接 ${connection.profile.label} · ${connection.profile.controllerOrigin}。仅手动操作，不轮询。`,
+    ))
+    const connectionActions = element('div', 'send-openlist-actions')
+    connectionActions.append(
+      this.sendActionButton('send-openlist-disconnect', '断开并清除 Token'),
+      this.sendActionButton('send-openlist-delete-profile', '删除 Profile'),
+    )
+    section.append(connectionActions)
+
+    const manual = document.createElement('textarea')
+    manual.value = this.sendManualText
+    manual.rows = 4
+    manual.placeholder = '每行一个 http、https、magnet 或 ed2k 地址'
+    manual.dataset.testid = 'send-openlist-manual-input'
+    const candidateActions = element('div', 'send-openlist-actions')
+    candidateActions.append(this.sendActionButton('send-openlist-parse', '检查候选'))
+    section.append(this.sendField('手动粘贴', manual), candidateActions)
+
+    if (this.sendCandidates.length) {
+      const list = element('ul', 'send-openlist-candidates')
+      list.dataset.testid = 'send-openlist-candidates'
+      for (const candidate of this.sendCandidates) {
+        const presented = presentResourceCandidate(candidate)
+        const item = element('li', 'send-openlist-candidate')
+        const choice = document.createElement('input')
+        choice.type = 'checkbox'
+        choice.checked = !presented.blocked && this.sendSelected.has(candidate.id)
+        choice.disabled = presented.blocked
+        choice.dataset.sendCandidateId = candidate.id
+        item.append(
+          choice,
+          element('span', 'send-openlist-kind', candidate.kind),
+          element('span', 'send-openlist-url', candidate.url),
+          ...(candidate.title ? [element('span', 'send-openlist-title-text', candidate.title)] : []),
+          element('span', 'send-openlist-risk', presented.riskLabel),
+        )
+        list.append(item)
+      }
+      section.append(list)
+    }
+
+    const path = document.createElement('input')
+    path.type = 'text'
+    path.value = this.sendDestinationPath
+    path.dataset.testid = 'send-openlist-path'
+    section.append(
+      this.sendField('服务端目标目录', path),
+      this.sendActionButton('send-openlist-tools', '读取可用离线工具'),
+    )
+    if (this.sendTools.length) {
+      const select = document.createElement('select')
+      select.dataset.testid = 'send-openlist-tool'
+      select.dataset.sendTool = 'true'
+      for (const tool of this.sendTools) {
+        const option = document.createElement('option')
+        option.value = tool
+        option.textContent = tool
+        option.selected = tool === this.sendSelectedTool
+        select.append(option)
+      }
+      section.append(
+        this.sendField('服务端返回工具', select),
+        this.sendActionButton(
+          'send-openlist-submit',
+          `提交已选 ${this.sendSelected.size} 项`,
+          this.sendBusy || this.sendSelected.size === 0 || !this.sendSelectedTool,
+        ),
+      )
+    }
+    if (this.sendSubmission) {
+      const results = element('ul', 'send-openlist-results')
+      results.dataset.testid = 'send-openlist-results'
+      for (const item of presentSubmissionStatus(this.sendSubmission)) {
+        const row = element('li', 'send-openlist-result')
+        row.append(element('span', '', item.label), element('span', 'send-openlist-url', item.url))
+        results.append(row)
+      }
+      section.append(results)
+    }
+
+    const taskActions = element('div', 'send-openlist-actions')
+    taskActions.append(
+      this.sendActionButton('send-openlist-list-undone', '刷新未完成任务'),
+      this.sendActionButton('send-openlist-list-done', '刷新已完成任务'),
+    )
+    section.append(taskActions)
+    for (const listKind of ['undone', 'done'] as const) {
+      const presented = presentTaskSnapshot(this.sendTaskSnapshots[listKind] || null)
+      const tasks = element('section', 'send-openlist-tasks')
+      tasks.dataset.testid = `send-openlist-${listKind}`
+      tasks.append(element('strong', '', presented.label))
+      const list = element('ul', 'send-openlist-task-list')
+      for (const task of presented.tasks) {
+        const item = element('li', 'send-openlist-task')
+        item.append(element('span', '', task.label), element('code', '', task.id))
+        if (listKind === 'undone') {
+          const button = this.sendActionButton('send-openlist-prepare-cancel', '审查取消')
+          button.dataset.taskId = task.id
+          item.append(button)
+        }
+        list.append(item)
+      }
+      tasks.append(list)
+      section.append(tasks)
+    }
+    if (this.sendCancelPlan) {
+      const review = element('div', 'send-openlist-review')
+      review.dataset.testid = 'send-openlist-cancel-review'
+      review.append(
+        element('strong', '', '确认取消一个服务端任务'),
+        element('code', '', this.sendCancelPlan.taskId),
+        element('p', 'send-openlist-note', `一次性计划有效至 ${this.sendCancelPlan.expiresAt}`),
+        this.sendActionButton('send-openlist-confirm-cancel', '确认取消'),
+        this.sendActionButton('send-openlist-abandon-cancel', '放弃'),
+      )
+      section.append(review)
+    }
+    return section
+  }
+
+  private sendField(label: string, control: HTMLElement) {
+    const wrapper = element('label', 'send-openlist-field')
+    wrapper.append(element('span', '', label), control)
+    return wrapper
   }
 
   private pageToolboxActionButton(action: string, label: string, disabled = false) {
@@ -1628,92 +1904,181 @@ export class ModuleManagementView {
     const record = this.records.find(candidate => candidate.manifest.id === button.dataset.moduleId)
     if (!record)
       return
-    if (button.dataset.action === 'toggle')
+    if (button.dataset.action === 'toggle') {
       void this.setEnabled(record, !record.enabled)
-    else if (button.dataset.action === 'remove' && record.source === 'user')
+    }
+    else if (button.dataset.action === 'remove' && record.source === 'user') {
       this.openRemovalConfirmation(record)
-    else if (button.dataset.action === 'update-check')
+    }
+    else if (button.dataset.action === 'update-check') {
       void this.checkUpdate(record)
-    else if (button.dataset.action === 'update-approve')
+    }
+    else if (button.dataset.action === 'update-approve') {
       void this.approveUpdate(record, this.collectUpdateApproval(button.closest('.module-update-panel')))
-    else if (button.dataset.action === 'update-apply')
+    }
+    else if (button.dataset.action === 'update-apply') {
       void this.applyUpdate(record)
-    else if (button.dataset.action === 'browser-journal-start')
+    }
+    else if (button.dataset.action === 'browser-journal-start') {
       void this.startBrowserJournal()
-    else if (button.dataset.action === 'browser-journal-stop')
+    }
+    else if (button.dataset.action === 'browser-journal-stop') {
       void this.stopBrowserJournal()
-    else if (button.dataset.action === 'browser-journal-save')
+    }
+    else if (button.dataset.action === 'browser-journal-save') {
       void this.saveBrowserJournal()
-    else if (button.dataset.action === 'browser-journal-select-saved')
+    }
+    else if (button.dataset.action === 'browser-journal-select-saved') {
       this.selectSavedBrowserJournal(button.dataset.savedSessionId)
-    else if (button.dataset.action === 'browser-journal-delete-saved')
+    }
+    else if (button.dataset.action === 'browser-journal-delete-saved') {
       void this.deleteSavedBrowserJournal(button.dataset.savedSessionId)
-    else if (button.dataset.action === 'browser-journal-clear-saved')
+    }
+    else if (button.dataset.action === 'browser-journal-clear-saved') {
       void this.clearSavedBrowserJournal(button.closest('.browser-journal-archive'))
-    else if (button.dataset.action === 'bookmark-authorize')
+    }
+    else if (button.dataset.action === 'bookmark-authorize') {
       void this.authorizeBookmarkDoctor()
-    else if (button.dataset.action === 'bookmark-prepare')
+    }
+    else if (button.dataset.action === 'bookmark-prepare') {
       void this.prepareBookmarkScan()
-    else if (button.dataset.action === 'bookmark-start')
+    }
+    else if (button.dataset.action === 'bookmark-start') {
       void this.startBookmarkScan()
-    else if (button.dataset.action === 'bookmark-stop')
+    }
+    else if (button.dataset.action === 'bookmark-stop') {
       void this.stopBookmarkScan()
-    else if (button.dataset.action === 'bookmark-authorize-repairs')
+    }
+    else if (button.dataset.action === 'bookmark-authorize-repairs') {
       void this.authorizeBookmarkRepairs()
-    else if (button.dataset.action === 'bookmark-result-filter')
+    }
+    else if (button.dataset.action === 'bookmark-result-filter') {
       this.setBookmarkResultFilter(button.dataset.filter)
-    else if (button.dataset.action === 'bookmark-result-repair')
+    }
+    else if (button.dataset.action === 'bookmark-result-repair') {
       this.openBookmarkRepairDraft(button.dataset.entryId, button.dataset.operation)
-    else if (button.dataset.action === 'bookmark-repair-cancel')
+    }
+    else if (button.dataset.action === 'bookmark-repair-cancel') {
       this.cancelBookmarkRepairDraft()
-    else if (button.dataset.action === 'bookmark-repair-prepare')
+    }
+    else if (button.dataset.action === 'bookmark-repair-prepare') {
       void this.prepareBookmarkRepair(button.closest('.bookmark-repair-panel'))
-    else if (button.dataset.action === 'bookmark-repair-confirm')
+    }
+    else if (button.dataset.action === 'bookmark-repair-confirm') {
       void this.confirmBookmarkRepair(button.closest('.bookmark-repair-panel'))
-    else if (button.dataset.action === 'bookmark-unignore')
+    }
+    else if (button.dataset.action === 'bookmark-unignore') {
       void this.unignoreBookmark(button.dataset.bookmarkId)
-    else if (button.dataset.action === 'bookmark-local-clear')
+    }
+    else if (button.dataset.action === 'bookmark-local-clear') {
       void this.clearBookmarkLocalData(button.closest('.bookmark-doctor-local-state'))
-    else if (button.dataset.action === 'bookmark-restore-prepare')
+    }
+    else if (button.dataset.action === 'bookmark-restore-prepare') {
       void this.prepareBookmarkRestore(button.dataset.backupToken)
-    else if (button.dataset.action === 'bookmark-restore-confirm')
+    }
+    else if (button.dataset.action === 'bookmark-restore-confirm') {
       void this.confirmBookmarkRestore()
-    else if (button.dataset.action === 'bookmark-revoke')
+    }
+    else if (button.dataset.action === 'bookmark-revoke') {
       void this.revokeBookmarkDoctorAccess()
-    else if (button.dataset.action === 'clash-prepare')
+    }
+    else if (button.dataset.action === 'clash-prepare') {
       void this.prepareClashConnection(button.closest('.clash-control-panel'))
-    else if (button.dataset.action === 'clash-connect')
+    }
+    else if (button.dataset.action === 'clash-connect') {
       void this.connectClashController()
-    else if (button.dataset.action === 'clash-refresh')
+    }
+    else if (button.dataset.action === 'clash-refresh') {
       void this.refreshClashSnapshot()
-    else if (button.dataset.action === 'clash-switch-prepare')
+    }
+    else if (button.dataset.action === 'clash-switch-prepare') {
       void this.prepareClashProxySwitch(button.closest('.clash-proxy-group'))
-    else if (button.dataset.action === 'clash-switch-confirm')
+    }
+    else if (button.dataset.action === 'clash-switch-confirm') {
       void this.confirmClashProxySwitch()
-    else if (button.dataset.action === 'clash-switch-cancel')
+    }
+    else if (button.dataset.action === 'clash-switch-cancel') {
       this.cancelClashProxySwitch()
-    else if (button.dataset.action === 'clash-disconnect')
+    }
+    else if (button.dataset.action === 'clash-disconnect') {
       void this.disconnectClashController()
-    else if (button.dataset.action === 'page-toolbox-prepare-site')
+    }
+    else if (button.dataset.action === 'page-toolbox-prepare-site') {
       void this.preparePageToolboxSite()
-    else if (button.dataset.action === 'page-toolbox-confirm-site')
+    }
+    else if (button.dataset.action === 'page-toolbox-confirm-site') {
       void this.confirmPageToolboxSite()
-    else if (button.dataset.action === 'page-toolbox-cancel-site')
+    }
+    else if (button.dataset.action === 'page-toolbox-cancel-site') {
       this.cancelPageToolboxSitePreparation()
-    else if (button.dataset.action === 'page-toolbox-save')
+    }
+    else if (button.dataset.action === 'page-toolbox-save') {
       void this.savePageToolboxSettings()
-    else if (button.dataset.action === 'page-toolbox-discard')
+    }
+    else if (button.dataset.action === 'page-toolbox-discard') {
       this.discardPageToolboxDraft()
-    else if (button.dataset.action === 'page-toolbox-refresh')
+    }
+    else if (button.dataset.action === 'page-toolbox-refresh') {
       void this.refreshPageToolboxControl(true)
-    else if (button.dataset.action === 'page-toolbox-revoke-site')
+    }
+    else if (button.dataset.action === 'page-toolbox-revoke-site') {
       void this.revokePageToolboxSite()
+    }
+    else if (button.dataset.action === 'send-openlist-prepare') {
+      void this.prepareSendToOpenList(button.closest('.send-openlist-panel'))
+    }
+    else if (button.dataset.action === 'send-openlist-connect') {
+      void this.connectSendToOpenList()
+    }
+    else if (button.dataset.action === 'send-openlist-disconnect') {
+      void this.disconnectSendToOpenList()
+    }
+    else if (button.dataset.action === 'send-openlist-delete-profile') {
+      void this.deleteSendToOpenListProfile()
+    }
+    else if (button.dataset.action === 'send-openlist-parse') {
+      this.parseSendToOpenListCandidates(button.closest('.send-openlist-panel'))
+    }
+    else if (button.dataset.action === 'send-openlist-tools') {
+      void this.discoverSendToOpenListTools(button.closest('.send-openlist-panel'))
+    }
+    else if (button.dataset.action === 'send-openlist-submit') {
+      void this.submitSendToOpenList(button.closest('.send-openlist-panel'))
+    }
+    else if (button.dataset.action === 'send-openlist-list-undone') {
+      void this.listSendToOpenListTasks('undone')
+    }
+    else if (button.dataset.action === 'send-openlist-list-done') {
+      void this.listSendToOpenListTasks('done')
+    }
+    else if (button.dataset.action === 'send-openlist-prepare-cancel') {
+      void this.prepareSendToOpenListCancel(button.dataset.taskId)
+    }
+    else if (button.dataset.action === 'send-openlist-confirm-cancel') {
+      void this.confirmSendToOpenListCancel()
+    }
+    else if (button.dataset.action === 'send-openlist-abandon-cancel') {
+      this.sendCancelPlan = null
+      this.render()
+    }
   }
 
   private readonly handleListChange = (event: Event) => {
     const control = event.target
     if (!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement))
       return
+    if (control.dataset.sendCandidateId) {
+      if (control instanceof HTMLInputElement && control.checked)
+        this.sendSelected.add(control.dataset.sendCandidateId)
+      else
+        this.sendSelected.delete(control.dataset.sendCandidateId)
+      this.render()
+      return
+    }
+    if (control.dataset.sendTool === 'true') {
+      this.sendSelectedTool = control.value
+      return
+    }
     const toolId = control.dataset.toolId
     if (!toolId || !control.closest(`[data-module-id="${PAGE_TOOLBOX_MODULE_ID}"]`))
       return
@@ -1745,6 +2110,355 @@ export class ModuleManagementView {
     })
     this.pageToolboxMessage = null
     this.render()
+  }
+
+  private sendToOpenListError(reason: string) {
+    const messages: Record<string, string> = {
+      'module-unavailable': 'Send to OpenList 内置模块不可用',
+      'module-disabled': 'Send to OpenList 已停用',
+      'invalid-profile': '服务地址必须是没有路径、查询或凭据的 HTTP(S) exact origin',
+      'permission-missing': '服务 exact-origin 权限缺失或已撤销',
+      'permission-check-failed': '无法核验服务 origin 权限',
+      'permission-denied': '未授权审查中的精确服务 origin',
+      'token-missing': '请输入 Token，或重新保存此 Profile 的 Token',
+      'authentication-failed': 'Token 无效或账号没有所需权限',
+      'http-error': '服务返回 HTTP 错误',
+      'upstream-rejected': '服务拒绝了本次操作',
+      'network-failed': '无法连接服务；读取操作可以手动重试',
+      'outcome-unknown': '写请求结果未知；不会自动重试，请刷新服务端任务确认',
+      'protocol-incompatible': '服务响应与已审计 OpenList/AList 契约不兼容',
+      'response-too-large': '服务响应超过本地安全上限',
+      'local-use-blocked': '候选指向本地、私网或保留地址，MVP 拒绝提交',
+      'operation-not-allowed': '操作未绑定当前工具、任务快照或审查计划',
+      'stale-generation': '审查计划或任务快照已过期，请重新刷新',
+      'lifecycle-invalidated': '连接生命周期已变化，请重新连接或刷新',
+      'active-tab-unavailable': '无法读取当前活动的普通标签页',
+      'page-scan-failed': '当前页临时扫描失败；未改变已有候选',
+      'discovery-empty': '没有发现受支持的 http、https、magnet 或 ed2k 地址',
+      'quota-exceeded': '浏览器候选超过发现数量或总字节上限',
+      'transport-error': '无法连接受信后台',
+      'invalid-response': '受信后台返回无效结果',
+    }
+    return messages[reason] || 'Send to OpenList 操作失败'
+  }
+
+  private sendToOpenListClientFailure(error: unknown) {
+    return error instanceof SendToOpenListClientError ? error.code : 'transport-error'
+  }
+
+  private setSendToOpenListMessage(message: string, error = false) {
+    this.sendMessage = { message, error }
+  }
+
+  private async refreshSendToOpenListStatus(render = false) {
+    if (!this.sendToOpenList)
+      return
+    try {
+      const result = readSendActionResult<SendToOpenListConnectionSnapshotV1>(await this.sendToOpenList.status())
+      if (!result || !result.ok) {
+        this.setSendToOpenListMessage(this.sendToOpenListError(result?.reason || 'invalid-response'), true)
+        return
+      }
+      this.sendConnection = structuredClone(result.value)
+      if (result.value.profile) {
+        this.sendProfileOrigin = result.value.profile.controllerOrigin
+        this.sendProfileLabel = result.value.profile.label
+      }
+      if (result.value.phase !== 'preparing')
+        this.sendPreparation = null
+      if (result.value.phase !== 'connected') {
+        this.sendTools = []
+        this.sendSelectedTool = ''
+        this.sendTaskSnapshots = {}
+        this.sendCancelPlan = null
+      }
+    }
+    catch (error) {
+      this.setSendToOpenListMessage(this.sendToOpenListError(this.sendToOpenListClientFailure(error)), true)
+    }
+    finally {
+      if (render)
+        this.render()
+    }
+  }
+
+  private async prepareSendToOpenList(panel: Element | null) {
+    if (!this.sendToOpenList)
+      return
+    this.sendProfileLabel = panel?.querySelector<HTMLInputElement>('[data-testid="send-openlist-profile-label"]')?.value.trim() || ''
+    this.sendProfileOrigin = panel?.querySelector<HTMLInputElement>('[data-testid="send-openlist-origin"]')?.value.trim() || ''
+    this.sendBusy = true
+    this.setSendToOpenListMessage('正在后台规范化 exact origin；尚未请求权限或联网。')
+    this.render()
+    try {
+      const result = readSendActionResult<SendToOpenListConnectionPreparationV1>(await this.sendToOpenList.prepare({
+        schemaVersion: 1,
+        id: 'primary',
+        label: this.sendProfileLabel,
+        controllerOrigin: this.sendProfileOrigin,
+      }))
+      if (!result || !result.ok) {
+        this.setSendToOpenListMessage(this.sendToOpenListError(result?.reason || 'invalid-response'), true)
+        return
+      }
+      this.sendPreparation = result.value
+      this.sendConnection = {
+        phase: 'preparing',
+        generation: result.value.generation,
+        profile: result.value.profile,
+        hasStoredToken: false,
+        preparationExpiresAt: result.value.expiresAt,
+      }
+      this.setSendToOpenListMessage('连接审查已建立；下一步仅请求显示的 exact origin。')
+    }
+    catch (error) {
+      this.setSendToOpenListMessage(this.sendToOpenListError(this.sendToOpenListClientFailure(error)), true)
+    }
+    finally {
+      this.sendBusy = false
+      this.render()
+    }
+  }
+
+  private async connectSendToOpenList() {
+    if (!this.sendToOpenList || !this.sendPreparation)
+      return
+    const preparation = this.sendPreparation
+    // A modal password input keeps the transient token out of the document tree after confirmation.
+    // eslint-disable-next-line no-alert
+    let token = window.prompt('输入 OpenList/AList Token（仅保存到受信后台专用本地记录）', '')
+    if (token === null)
+      return
+    this.sendBusy = true
+    this.setSendToOpenListMessage('正在申请 exact-origin 权限并验证固定 /api/me…')
+    this.render()
+    try {
+      const pending = this.sendToOpenList.connect(preparation, token)
+      token = ''
+      const result = readSendActionResult<SendToOpenListConnectionSnapshotV1>(await pending)
+      if (!result || !result.ok) {
+        this.setSendToOpenListMessage(this.sendToOpenListError(result?.reason || 'invalid-response'), true)
+        await this.refreshSendToOpenListStatus()
+        return
+      }
+      this.sendConnection = result.value
+      this.sendPreparation = null
+      this.setSendToOpenListMessage('连接成功；工具、提交和任务读取都只在用户操作时执行。')
+    }
+    catch (error) {
+      this.setSendToOpenListMessage(this.sendToOpenListError(this.sendToOpenListClientFailure(error)), true)
+    }
+    finally {
+      token = ''
+      this.sendBusy = false
+      this.render()
+    }
+  }
+
+  private async disconnectSendToOpenList() {
+    if (!this.sendToOpenList)
+      return
+    this.sendBusy = true
+    this.render()
+    try {
+      const result = readSendActionResult(await this.sendToOpenList.disconnect())
+      if (!result || !result.ok) {
+        this.setSendToOpenListMessage(this.sendToOpenListError(result?.reason || 'invalid-response'), true)
+        return
+      }
+      await this.refreshSendToOpenListStatus()
+      this.setSendToOpenListMessage('已断开并清除 Token；不会自动重连。')
+    }
+    catch (error) {
+      this.setSendToOpenListMessage(this.sendToOpenListError(this.sendToOpenListClientFailure(error)), true)
+    }
+    finally {
+      this.sendBusy = false
+      this.render()
+    }
+  }
+
+  private async deleteSendToOpenListProfile() {
+    if (!this.sendToOpenList)
+      return
+    this.sendBusy = true
+    this.render()
+    try {
+      const result = readSendActionResult(await this.sendToOpenList.deleteProfile())
+      if (!result || !result.ok) {
+        this.setSendToOpenListMessage(this.sendToOpenListError(result?.reason || 'invalid-response'), true)
+        return
+      }
+      this.sendProfileOrigin = ''
+      this.sendProfileLabel = 'OpenList/AList'
+      await this.refreshSendToOpenListStatus()
+      this.setSendToOpenListMessage('Profile 与专用 Token 已删除。')
+    }
+    catch (error) {
+      this.setSendToOpenListMessage(this.sendToOpenListError(this.sendToOpenListClientFailure(error)), true)
+    }
+    finally {
+      this.sendBusy = false
+      this.render()
+    }
+  }
+
+  private parseSendToOpenListCandidates(panel: Element | null) {
+    this.sendManualText = panel?.querySelector<HTMLTextAreaElement>('[data-testid="send-openlist-manual-input"]')?.value || ''
+    const parsed = parseManualResourceCandidates(this.sendManualText)
+    if (parsed.error) {
+      this.setSendToOpenListMessage(parsed.error, true)
+    }
+    else {
+      const browserCandidates = this.sendCandidates.filter(candidate => candidate.source !== 'manual')
+      const merged = mergePresentedResourceCandidates(browserCandidates, parsed.candidates)
+      if (!merged.ok) {
+        this.setSendToOpenListMessage(this.sendToOpenListError('quota-exceeded'), true)
+        this.render()
+        return
+      }
+      this.sendCandidates = merged.value
+      this.sendSelected.clear()
+      for (const candidate of this.sendCandidates) {
+        if (this.sendSelected.size >= 50)
+          break
+        if (!presentResourceCandidate(candidate).blocked)
+          this.sendSelected.add(candidate.id)
+      }
+      this.setSendToOpenListMessage(
+        `已规范化并去重 ${this.sendCandidates.length} 项；仅展示，尚未提交。${this.sendCandidates.length > 50 ? ' 默认只选前 50 个可提交项。' : ''}`,
+      )
+    }
+    this.sendSubmission = null
+    this.render()
+  }
+
+  private async discoverSendToOpenListTools(panel: Element | null) {
+    if (!this.sendToOpenList)
+      return
+    this.sendDestinationPath = panel?.querySelector<HTMLInputElement>('[data-testid="send-openlist-path"]')?.value.trim() || ''
+    this.sendBusy = true
+    this.render()
+    try {
+      const result = readSendActionResult<readonly string[]>(await this.sendToOpenList.discoverTools(this.sendDestinationPath))
+      if (!result || !result.ok) {
+        this.setSendToOpenListMessage(this.sendToOpenListError(result?.reason || 'invalid-response'), true)
+        return
+      }
+      this.sendTools = result.value
+      this.sendSelectedTool = result.value[0] || ''
+      this.setSendToOpenListMessage(`服务端返回 ${result.value.length} 个可用工具；没有硬编码工具名称。`)
+    }
+    catch (error) {
+      this.setSendToOpenListMessage(this.sendToOpenListError(this.sendToOpenListClientFailure(error)), true)
+    }
+    finally {
+      this.sendBusy = false
+      this.render()
+    }
+  }
+
+  private async submitSendToOpenList(panel: Element | null) {
+    if (!this.sendToOpenList)
+      return
+    this.sendDestinationPath = panel?.querySelector<HTMLInputElement>('[data-testid="send-openlist-path"]')?.value.trim() || this.sendDestinationPath
+    this.sendSelectedTool = panel?.querySelector<HTMLSelectElement>('[data-testid="send-openlist-tool"]')?.value || this.sendSelectedTool
+    const candidates = this.sendCandidates.filter(candidate => this.sendSelected.has(candidate.id)).slice(0, 50)
+    this.sendBusy = true
+    this.setSendToOpenListMessage(`正在逐条提交 ${candidates.length} 项，后台并发上限为 2…`)
+    this.render()
+    try {
+      const result = readSendActionResult<SendToOpenListSubmissionStateV1>(await this.sendToOpenList.submit(
+        candidates,
+        this.sendDestinationPath,
+        this.sendSelectedTool,
+      ))
+      if (!result || !result.ok) {
+        this.setSendToOpenListMessage(this.sendToOpenListError(result?.reason || 'invalid-response'), true)
+        return
+      }
+      this.sendSubmission = result.value
+      this.setSendToOpenListMessage('逐条提交已结束；结果未知项不会自动重试。')
+    }
+    catch (error) {
+      this.setSendToOpenListMessage(this.sendToOpenListError(this.sendToOpenListClientFailure(error)), true)
+    }
+    finally {
+      this.sendBusy = false
+      this.render()
+    }
+  }
+
+  private async listSendToOpenListTasks(list: 'undone' | 'done') {
+    if (!this.sendToOpenList)
+      return
+    this.sendBusy = true
+    this.sendCancelPlan = null
+    this.render()
+    try {
+      const result = readSendActionResult<SendToOpenListTaskSnapshotV1>(await this.sendToOpenList.listTasks(list))
+      if (!result || !result.ok) {
+        this.setSendToOpenListMessage(this.sendToOpenListError(result?.reason || 'invalid-response'), true)
+        return
+      }
+      this.sendTaskSnapshots[list] = result.value
+      this.setSendToOpenListMessage(`${list === 'undone' ? '未完成' : '已完成'}任务已手动刷新；不会自动轮询。`)
+    }
+    catch (error) {
+      this.setSendToOpenListMessage(this.sendToOpenListError(this.sendToOpenListClientFailure(error)), true)
+    }
+    finally {
+      this.sendBusy = false
+      this.render()
+    }
+  }
+
+  private async prepareSendToOpenListCancel(taskId: string | undefined) {
+    if (!this.sendToOpenList || !taskId)
+      return
+    this.sendBusy = true
+    this.render()
+    try {
+      const result = readSendActionResult<SendToOpenListCancelReviewPlanV1>(await this.sendToOpenList.prepareCancel(taskId))
+      if (!result || !result.ok) {
+        this.setSendToOpenListMessage(this.sendToOpenListError(result?.reason || 'invalid-response'), true)
+        return
+      }
+      this.sendCancelPlan = result.value
+      this.setSendToOpenListMessage('取消计划已绑定最新未完成任务快照；尚未执行。')
+    }
+    catch (error) {
+      this.setSendToOpenListMessage(this.sendToOpenListError(this.sendToOpenListClientFailure(error)), true)
+    }
+    finally {
+      this.sendBusy = false
+      this.render()
+    }
+  }
+
+  private async confirmSendToOpenListCancel() {
+    if (!this.sendToOpenList || !this.sendCancelPlan)
+      return
+    const plan = this.sendCancelPlan
+    this.sendCancelPlan = null
+    this.sendBusy = true
+    this.render()
+    try {
+      const result = readSendActionResult<{ taskId: string }>(await this.sendToOpenList.confirmCancel(plan.token))
+      if (!result || !result.ok) {
+        this.setSendToOpenListMessage(this.sendToOpenListError(result?.reason || 'invalid-response'), true)
+        return
+      }
+      this.sendTaskSnapshots.undone = undefined
+      this.setSendToOpenListMessage(`任务 ${result.value.taskId} 已请求取消；请手动刷新确认服务端状态。`)
+    }
+    catch (error) {
+      this.setSendToOpenListMessage(this.sendToOpenListError(this.sendToOpenListClientFailure(error)), true)
+    }
+    finally {
+      this.sendBusy = false
+      this.render()
+    }
   }
 
   private pageToolboxErrorMessage(reason: string) {

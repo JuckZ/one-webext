@@ -595,6 +595,89 @@ button {
   border-top: 1px solid #e8edf4;
 }
 
+.send-openlist-panel {
+  display: grid;
+  gap: 12px;
+  margin: 14px 0;
+  padding: 14px;
+  border: 1px solid rgb(66 153 225 / 24%);
+  border-radius: 14px;
+  background: rgb(247 250 252 / 74%);
+}
+
+.send-openlist-title,
+.send-openlist-note,
+.send-openlist-message {
+  margin: 0;
+}
+
+.send-openlist-message[data-state='error'] {
+  color: #b42318;
+}
+
+.send-openlist-form,
+.send-openlist-review,
+.send-openlist-tasks {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgb(148 163 184 / 30%);
+  border-radius: 10px;
+}
+
+.send-openlist-field {
+  display: grid;
+  gap: 5px;
+  font-size: 12px;
+}
+
+.send-openlist-field input,
+.send-openlist-field textarea,
+.send-openlist-field select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.send-openlist-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.send-openlist-candidates,
+.send-openlist-results,
+.send-openlist-task-list {
+  display: grid;
+  gap: 8px;
+  max-height: 260px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.send-openlist-candidate,
+.send-openlist-result,
+.send-openlist-task {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.send-openlist-result,
+.send-openlist-task {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.send-openlist-url {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .clash-control-heading {
   display: flex;
   align-items: center;

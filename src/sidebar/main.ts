@@ -5,6 +5,7 @@ import { BookmarkDoctorClient } from '~/modules/builtin/bookmark-doctor'
 import { BrowserJournalClient } from '~/modules/builtin/browser-journal'
 import { ClashControlClient } from '~/modules/builtin/clash-control'
 import { PageToolboxClient } from '~/modules/builtin/page-toolbox'
+import { SendToOpenListClient } from '~/modules/builtin/send-to-openlist'
 import { type ContextSnapshot, createDefaultContextBroker } from '~/modules/context-broker'
 import {
   type ContextSnapshotMessage,
@@ -53,6 +54,10 @@ const clashControlClient = new ClashControlClient(
   browser.permissions,
 )
 const pageToolboxClient = new PageToolboxClient(
+  { sendMessage: message => browser.runtime.sendMessage(message) },
+  browser.permissions,
+)
+const sendToOpenListClient = new SendToOpenListClient(
   { sendMessage: message => browser.runtime.sendMessage(message) },
   browser.permissions,
 )
@@ -205,6 +210,7 @@ managementView = new ModuleManagementView({
   bookmarkDoctor: bookmarkDoctorClient,
   clashControl: clashControlClient,
   pageToolbox: pageToolboxClient,
+  sendToOpenList: sendToOpenListClient,
   onRecordChanged: (record) => {
     if (record.manifest.id === activeRecord?.manifest.id)
       activateModule(record)
